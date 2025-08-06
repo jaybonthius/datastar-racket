@@ -6,7 +6,7 @@
 
 (define build-deps '("scribble-lib" "racket-doc" "rackunit-lib"))
 
-(define test-include-paths '("tests/sdk-tests"))
+(define test-include-paths '("tests/sdk-tests/sdk-test-runner.rkt"))
 
 (define scribblings '(("scribblings/datastar.scrbl")))
 
