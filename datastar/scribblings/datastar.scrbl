@@ -4,6 +4,7 @@
           racket/file
           (for-label datastar
                      racket/base
+                     racket/contract
                      web-server/http/request-structs
                      web-server/http/response-structs
                      json)
