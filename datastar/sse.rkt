@@ -82,6 +82,9 @@
             (λ (out)
               (parameterize ([current-output-port out])
                 (cond
+                  [(string? events-generator)
+                   (write-string events-generator out)
+                   (flush-output out)]
                   [(sequence? events-generator)
                    (for ([event events-generator])
                      (write-string event out)
