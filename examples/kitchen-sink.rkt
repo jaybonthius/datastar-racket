@@ -59,9 +59,9 @@
                 (p "Streaming time (via signals): " (span ((data-text "$currentTime"))))
                 (p "Streaming time (via elements): "
                    (span ((id "streamingTimeElement")) "Not started"))
-                (button ((data-on-click "@post('patch-elements')")) "Patch Elements")
-                (button ((data-on-click "@post('remove-elements')")) "Remove Elements")
-                (button ((data-on-click "@post('patch-signals')")) "Patch Signals")
+                (button ((data-on-click "@patch('patch-elements')")) "Patch Elements")
+                (button ((data-on-click "@delete('remove-elements')")) "Remove Elements")
+                (button ((data-on-click "@patch('patch-signals')")) "Patch Signals")
                 (button ((data-on-click "@post('execute-script')")) "Execute Script")
                 (button ((data-on-click "@get('streaming')")) "Start Streaming")
                 (button ((data-on-click "@post('redirect')")) "Redirect"))))))
@@ -71,9 +71,9 @@
 
 (define-values (app reverse-uri)
   (dispatch-rules [("") home-handler]
-                  [("patch-elements") #:method "post" patch-elements-handler]
-                  [("remove-elements") #:method "post" remove-elements-handler]
-                  [("patch-signals") #:method "post" patch-signals-handler]
+                  [("patch-elements") #:method "patch" patch-elements-handler]
+                  [("remove-elements") #:method "delete" remove-elements-handler]
+                  [("patch-signals") #:method "patch" patch-signals-handler]
                   [("execute-script") #:method "post" execute-script-handler]
                   [("streaming") streaming-handler]
                   [("redirect") #:method "post" redirect-handler]
