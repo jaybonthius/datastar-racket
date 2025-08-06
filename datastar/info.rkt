@@ -6,8 +6,6 @@
 
 (define build-deps '("scribble-lib" "racket-doc" "rackunit-lib" "web-server-doc"))
 
-(define test-include-paths '("tests/sdk-tests/sdk-test-runner.rkt"))
-
 (define scribblings '(("scribblings/datastar.scrbl")))
 
 (define pkg-desc "Datastar SDK for Racket")

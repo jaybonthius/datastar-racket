@@ -19,4 +19,4 @@ jobs:
       - name: Install Package and Dependencies
         run: raco pkg install --auto --batch datastar/
       - name: Run Tests
-        run: raco test datastar/tests
+        run: raco test -s sdk-test datastar/tests

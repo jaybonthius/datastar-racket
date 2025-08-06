@@ -2,13 +2,11 @@
 
 (require racket/system
          racket/tcp
-         racket/match
          rackunit
          "sdk-test-server.rkt")
 
 (define SERVER_PORT 7331)
 (define SERVER_READY_TIMEOUT 10)
-(define TEST_TIMEOUT 30)
 
 (define (wait-for-server-ready port timeout)
   (define end-time (+ (current-seconds) timeout))
@@ -60,7 +58,7 @@
 
   test-success?)
 
-(module+ test
+(module+ sdk-test
   (test-case "Datastar SDK Integration Test"
     (check-true (run-server-and-tests) "SDK tests should pass against Racket server")))
 
