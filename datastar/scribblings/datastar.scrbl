@@ -30,7 +30,6 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
          datastar
          json)
 
-; Define a data structure to represent your store
 (struct store (message count) #:transparent)
 
 (define (handler req)
@@ -74,6 +73,8 @@ For more advanced usage with streaming updates, you can use generators:
           (sleep 1)
           (loop (+ i 1)))))))
 }
+
+For more examples, see the @link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory} on GitHub.
 
 @section{Methods}
 
