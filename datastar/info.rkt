@@ -4,7 +4,7 @@
 
 (define deps '("base" "web-server-lib" "net-lib"))
 
-(define build-deps '("scribble-lib" "racket-doc" "rackunit-lib"))
+(define build-deps '("scribble-lib" "racket-doc" "rackunit-lib" "web-server-doc"))
 
 (define test-include-paths '("tests/sdk-tests/sdk-test-runner.rkt"))
 
