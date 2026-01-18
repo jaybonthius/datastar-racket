@@ -3,7 +3,7 @@
 (provide (all-defined-out))
 
 (define DATASTAR-KEY "datastar")
-(define VERSION "1.0.0-RC.4")
+(define VERSION "1.0.0-RC.7")
 
 (define SSE-HEADERS
   (hash "Cache-Control"
@@ -35,6 +35,7 @@
 ; Dataline literals
 (define SELECTOR-DATALINE-LITERAL "selector")
 (define MODE-DATALINE-LITERAL "mode")
+(define NAMESPACE-DATALINE-LITERAL "namespace")
 (define ELEMENTS-DATALINE-LITERAL "elements")
 (define USE-VIEW-TRANSITION-DATALINE-LITERAL "useViewTransition")
 (define SIGNALS-DATALINE-LITERAL "signals")

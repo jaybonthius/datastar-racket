@@ -58,9 +58,9 @@
 
   test-success?)
 
-(module+ sdk-test
+(module+ test
   (test-case "Datastar SDK Integration Test"
-    (check-true (run-server-and-tests) "SDK tests should pass against Racket server")))
+             (check-true (run-server-and-tests) "SDK tests should pass against Racket server")))
 
 (module+ main
   (define success? (run-server-and-tests))

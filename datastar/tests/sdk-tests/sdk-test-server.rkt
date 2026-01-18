@@ -16,6 +16,7 @@
   (patch-elements (hash-ref event 'elements #f)
                   #:selector (hash-ref event 'selector #f)
                   #:mode (hash-ref event 'mode #f)
+                  #:namespace (hash-ref event 'namespace #f)
                   #:use-view-transitions (hash-ref event 'useViewTransition #f)
                   #:event-id (hash-ref event 'eventId #f)
                   #:retry-duration (hash-ref event 'retryDuration #f)))
@@ -58,7 +59,7 @@
   (define events (hash-ref signals 'events '()))
   (process-events req events))
 
-(define (process-events req events)
+(define (process-events _req events)
   (define results
     (for/list ([event events])
       (process-single-event event)))

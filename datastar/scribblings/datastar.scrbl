@@ -36,26 +36,26 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 (define (handler req)
   ; Read signals from the request
   (define signals-data (read-signals req))
-  (define current-store 
+  (define current-store
     (store (hash-ref signals-data 'message "")
            (hash-ref signals-data 'count 0)))
-  
+
   ; Create a Server-Sent Event response
-  (datastar-response 
+  (datastar-response
     (list
       ; Patch elements in the DOM
       (patch-elements "<div id=\"output\">Hello from Datastar!</div>")
-      
+
       ; Remove elements from the DOM
       (remove-elements "#temporary-element")
-      
+
       ; Patch signals (update client-side state)
       (patch-signals (hash 'message "Updated message"
                             'count (+ (store-count current-store) 1)))
-      
+
       ; Execute JavaScript in the browser
       (execute-script "console.log(\"Hello from server!\")")
-      
+
       ; Redirect the browser
       (redirect "/new-page"))))
 }
@@ -69,7 +69,7 @@ For more advanced usage with streaming updates, you can use generators:
       (let loop ([i 0])
         (when (< i 10)
           (yield (patch-signals (hash 'counter i)))
-          (yield (patch-elements 
+          (yield (patch-elements
                    (format "<div id=\"counter\">Count: ~a</div>" i)))
           (sleep 1)
           (loop (+ i 1)))))))
@@ -86,27 +86,28 @@ Creates an HTTP response with proper SSE headers for streaming Datastar events t
 @defproc[(patch-elements [elements (or/c string? #f)]
                          [#:selector selector (or/c string? #f) #f]
                          [#:mode mode (or/c string? #f) #f]
+                         [#:namespace namespace (or/c string? #f) #f]
                          [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
                          [#:event-id event-id (or/c string? #f) #f]
                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Patches HTML elements into the DOM. Supports various patch modes including outer, inner, replace, prepend, append, before, after, and remove.
+Patches HTML elements into the DOM. Supports various patch modes including outer, inner, replace, prepend, append, before, after, and remove. The @racket[namespace] parameter can be used to specify SVG or MathML namespaces when patching elements.
 }
 
 @defproc[(remove-elements [selector string?]
                           [#:event-id event-id (or/c string? #f) #f]
                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Removes elements from the DOM by CSS selector. This is a convenience function that calls @racket[patch-elements] with mode 'remove'.
+Removes elements from the DOM by CSS selector. This is a convenience function that calls @racket[patch-elements] with mode @tt{remove}.
 }
 
 @defproc[(read-signals [request request?]) jsexpr?]{
-Parses incoming signal data from the browser. For GET requests, extracts data from the 'datastar' query parameter. For other methods, parses the request body as JSON.
+Parses incoming signal data from the browser. For GET requests, extracts data from the @tt{datastar} query parameter. For other methods, parses the request body as JSON.
 }
 
 @defproc[(patch-signals [signals (or/c string? jsexpr?)]
                         [#:event-id event-id (or/c string? #f) #f]
                         [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Patches signals into the signal store using RFC 7386 JSON Merge Patch semantics. Supports add/update operations, removal by setting to null, and nested recursive patching.
+Patches signals into the signal store using RFC 7386 JSON Merge Patch semantics. Supports add/update operations, removal by setting to @tt{null}, and nested recursive patching.
 }
 
 @defproc[(execute-script [script string?]
@@ -114,11 +115,11 @@ Patches signals into the signal store using RFC 7386 JSON Merge Patch semantics.
                          [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
                          [#:event-id event-id (or/c string? #f) #f]
                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Executes JavaScript in the browser by injecting a script tag. The script is automatically removed after execution unless auto-remove is #f.
+Executes JavaScript in the browser by injecting a script tag. The script is automatically removed after execution unless auto-remove is @racket[#f].
 }
 
 @defproc[(redirect [location string?]) string?]{
-Redirects the browser to a new location using window.location. This is a convenience function that calls @racket[execute-script].
+Redirects the browser to a new location using @tt{window.location}. This is a convenience function that calls @racket[execute-script].
 }
 
 @section{Constants}

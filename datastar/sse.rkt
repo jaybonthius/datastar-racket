@@ -1,40 +1,41 @@
 #lang racket/base
 
 (require json
-         "constants.rkt"
-         racket/sequence
+         racket/contract/base
          racket/match
          racket/string
-         racket/contract
-         web-server/http)
+         racket/sequence
+         web-server/http
+         "constants.rkt")
 
 (provide (contract-out
           [datastar-response (-> (or/c string? (sequence/c string?)) response?)]
           [patch-elements
-           (->* ((or/c string? #f))
-                (#:selector (or/c string? #f)
-                            #:mode (or/c string? #f)
-                            #:use-view-transitions (or/c boolean? #f)
-                            #:event-id (or/c string? #f)
-                            #:retry-duration (or/c exact-positive-integer? #f))
+           (->* [(or/c string? #f)]
+                [#:selector (or/c string? #f)
+                 #:mode (or/c string? #f)
+                 #:namespace (or/c string? #f)
+                 #:use-view-transitions (or/c boolean? #f)
+                 #:event-id (or/c string? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
                 string?)]
           [remove-elements
-           (->* (string?)
-                (#:event-id (or/c string? #f) #:retry-duration (or/c exact-positive-integer? #f))
+           (->* [string?]
+                [#:event-id (or/c string? #f) #:retry-duration (or/c exact-positive-integer? #f)]
                 string?)]
           [read-signals (-> request? jsexpr?)]
           [patch-signals
-           (->* ((or/c string? jsexpr?))
-                (#:event-id (or/c string? #f)
-                            #:only-if-missing (or/c boolean? #f)
-                            #:retry-duration (or/c exact-positive-integer? #f))
+           (->* [(or/c string? jsexpr?)]
+                [#:event-id (or/c string? #f)
+                 #:only-if-missing (or/c boolean? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
                 string?)]
           [execute-script
-           (->* (string?)
-                (#:auto-remove boolean?
-                               #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
-                               #:event-id (or/c string? #f)
-                               #:retry-duration (or/c exact-positive-integer? #f))
+           (->* [string?]
+                [#:auto-remove boolean?
+                 #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
+                 #:event-id (or/c string? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
                 string?)]
           [redirect (-> string? string?)]))
 
@@ -97,9 +98,11 @@
 ; ELEMENTS
 ; ==========================================================
 
+
 (define (patch-elements elements
                         #:selector [selector #f]
                         #:mode [mode #f]
+                        #:namespace [namespace #f]
                         #:use-view-transitions [use-view-transitions #f]
                         #:event-id [event-id #f]
                         #:retry-duration [retry-duration #f])
@@ -109,6 +112,7 @@
                                (not (string=? mode ELEMENT-PATCH-MODE-OUTER))
                                (string-append MODE-DATALINE-LITERAL " " mode))
                           (and selector (string-append SELECTOR-DATALINE-LITERAL " " selector))
+                          (and namespace (string-append NAMESPACE-DATALINE-LITERAL " " namespace))
                           (and use-view-transitions
                                (not (eq? use-view-transitions DEFAULT-ELEMENTS-USE-VIEW-TRANSITIONS))
                                (string-append USE-VIEW-TRANSITION-DATALINE-LITERAL
