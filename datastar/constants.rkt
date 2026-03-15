@@ -3,7 +3,7 @@
 (provide (all-defined-out))
 
 (define DATASTAR-KEY "datastar")
-(define VERSION "1.0.0-RC.7")
+(define VERSION "1.0.0-RC.8")
 
 (define SSE-HEADERS
   (hash "Cache-Control"

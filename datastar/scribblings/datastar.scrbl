@@ -1,14 +1,12 @@
 #lang scribble/doc
 
 @(require scribble/manual
-          racket/file
           (for-label datastar
                      racket/base
                      racket/contract
                      web-server/http/request-structs
                      web-server/http/response-structs
-                     json)
-          scribble/examples)
+                     json))
 
 @title{Datastar Racket SDK}
 
