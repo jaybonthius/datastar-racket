@@ -101,6 +101,19 @@ Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a 
 @racket[sse?] generator that can be used to send events to the client. When @racket[on-open]
 returns (or raises an exception), the connection is closed and @racket[on-close] is called
 if provided.
+
+@bold{Important:} When using Racket's built-in web server (via @racket[serve/servlet] or
+@racket[serve]), two settings are required for SSE to work correctly:
+
+@itemlist[
+  @item{@racket[#:connection-close? #t] — Without this, the web server uses chunked transfer
+        encoding with an internal pipe that silently absorbs writes to dead connections,
+        preventing send functions from returning @racket[#f] and @racket[on-close] from firing.}
+  @item{@racket[#:safety-limits (make-safety-limits #:response-send-timeout +inf.0)] — The
+        default @racket[response-send-timeout] of 60 seconds kills connections that go idle
+        between sends. SSE connections may be long-lived and idle, so this timeout must be
+        disabled. Requires @racket[(require web-server/safety-limits)].}
+]
 }
 
 @defproc[(sse? [v any/c]) boolean?]{
