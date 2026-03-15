@@ -2,7 +2,6 @@
 
 (require datastar
          gregor
-         racket/generator
          web-server/dispatch
          web-server/http
          web-server/servlet-env
@@ -10,33 +9,38 @@
 
 (struct store (message count) #:transparent)
 
-(define (patch-elements-handler _req)
-  (datastar-response (patch-elements (xexpr->string '(div ([id "output"]) "Hello from Datastar!")))))
+(define (patch-elements-handler req)
+  (datastar-sse
+   req
+   (lambda (sse) (patch-elements sse (xexpr->string '(div ([id "output"]) "Hello from Datastar!"))))))
 
-(define (remove-elements-handler _req)
-  (datastar-response (remove-elements "#temporary-element")))
+(define (remove-elements-handler req)
+  (datastar-sse req (lambda (sse) (remove-elements sse "#temporary-element"))))
 
 (define (patch-signals-handler req)
   (define signals-data (read-signals req))
   (define current-store (store (hash-ref signals-data 'message "") (hash-ref signals-data 'count 0)))
-  (datastar-response
-   (patch-signals (hash 'message "Updated message" 'count (+ (store-count current-store) 1)))))
+  (datastar-sse
+   req
+   (lambda (sse)
+     (patch-signals sse (hash 'message "Updated message" 'count (+ (store-count current-store) 1))))))
 
-(define (execute-script-handler _req)
-  (datastar-response (execute-script "console.log(\"Hello from server!\")")))
+(define (execute-script-handler req)
+  (datastar-sse req (lambda (sse) (execute-script sse "console.log(\"Hello from server!\")"))))
 
-(define (redirect-handler _req)
-  (datastar-response (redirect "/new-page")))
+(define (redirect-handler req)
+  (datastar-sse req (lambda (sse) (redirect sse "/new-page"))))
 
-(define (streaming-handler _req)
-  (datastar-response
-   (in-generator (let loop ()
-                   (define current-time (~t (now) "yyyy-MM-dd'T'HH:mm:ss.SSS"))
-                   (yield (patch-signals (hash 'currentTime current-time)))
-                   (yield (patch-elements (xexpr->string `(span ([id "streamingTimeElement"])
-                                                                ,current-time))))
-                   (sleep 0.1)
-                   (loop)))))
+(define (streaming-handler req)
+  (datastar-sse
+   req
+   (lambda (sse)
+     (let loop ()
+       (define current-time (~t (now) "yyyy-MM-dd'T'HH:mm:ss.SSS"))
+       (patch-signals sse (hash 'currentTime current-time))
+       (when (patch-elements sse (xexpr->string `(span ([id "streamingTimeElement"]) ,current-time)))
+         (sleep 0.1)
+         (loop))))))
 
 (define (new-page-handler _req)
   (response/xexpr '(html (body "You've been redirected to the new page!"))))
@@ -46,8 +50,9 @@
    `(html
      (head
       (link ([rel "stylesheet"] [href "/style.css"]))
-      (script ((type "module")
-               (src "https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.8/bundles/datastar.js"))))
+      (script
+       ((type "module")
+        (src "https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.8/bundles/datastar.js"))))
      (body ((data-signals "{message: '', count: 0, currentTime: 'Not started'}"))
            (div ((class "container"))
                 (h1 "Datastar Usage Example")

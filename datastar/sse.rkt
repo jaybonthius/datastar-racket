@@ -3,59 +3,173 @@
 (require json
          racket/contract/base
          racket/match
-         racket/sequence
          racket/string
          web-server/http
          "constants.rkt")
 
-(provide (contract-out [datastar-response (-> (or/c string? (sequence/c string?)) response?)]
-                       [patch-elements
-                        (->* [(or/c string? #f)]
-                             [#:selector (or/c string? #f)
-                              #:mode (or/c string? #f)
-                              #:namespace (or/c string? #f)
-                              #:use-view-transitions (or/c boolean? #f)
-                              #:event-id (or/c string? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             string?)]
-                       [remove-elements
-                        (->* [string?]
-                             [#:event-id (or/c string? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             string?)]
-                       [read-signals (-> request? jsexpr?)]
-                       [patch-signals
-                        (->* [(or/c string? jsexpr?)]
-                             [#:event-id (or/c string? #f)
-                              #:only-if-missing (or/c boolean? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             string?)]
-                       [execute-script
-                        (->* [string?]
-                             [#:auto-remove boolean?
-                              #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
-                              #:event-id (or/c string? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             string?)]
-                       [redirect (-> string? string?)]))
+(provide (contract-out
+          [datastar-sse (->* [request? (-> sse? any)] [#:on-close (or/c (-> sse? any) #f)] response?)]
+          [patch-elements
+           (->* [sse? (or/c string? #f)]
+                [#:selector (or/c string? #f)
+                 #:mode (or/c string? #f)
+                 #:namespace (or/c string? #f)
+                 #:use-view-transitions (or/c boolean? #f)
+                 #:event-id (or/c string? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [remove-elements
+           (->* [sse? string?]
+                [#:event-id (or/c string? #f) #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [patch-signals
+           (->* [sse? (or/c string? jsexpr?)]
+                [#:event-id (or/c string? #f)
+                 #:only-if-missing (or/c boolean? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [execute-script
+           (->* [sse? string?]
+                [#:auto-remove boolean?
+                 #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
+                 #:event-id (or/c string? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [redirect (-> sse? string? boolean?)]
+          [console-log (-> sse? string? boolean?)]
+          [close-sse (-> sse? void?)]
+          [read-signals (-> request? jsexpr?)]
+          [sse? (-> any/c boolean?)]))
 
 ; ==========================================================
-; UTILS
+; PUBLIC API
+; ==========================================================
+
+(struct sse (out semaphore closed-box) #:constructor-name make-sse)
+
+(define (close-sse gen)
+  (unless (unbox (sse-closed-box gen))
+    (set-box! (sse-closed-box gen) #t)
+    (with-handlers ([exn:fail? void])
+      (flush-output (sse-out gen)))))
+
+(define (datastar-sse request on-open #:on-close [on-close #f])
+  (response 200
+            #"OK"
+            (current-seconds)
+            #"text/event-stream"
+            (for/list ([(k v) (in-hash SSE-HEADERS)])
+              (make-header (string->bytes/utf-8 k) (string->bytes/utf-8 v)))
+            (lambda (out)
+              (define gen (make-sse out (make-semaphore 1) (box #f)))
+              (dynamic-wind void
+                            (lambda () (on-open gen))
+                            (lambda ()
+                              (close-sse gen)
+                              (when on-close
+                                (on-close gen)))))))
+
+(define (read-signals request)
+  (match (request-method request)
+    [#"GET"
+     (define datastar-binding
+       (findf (lambda (binding) (equal? (bytes->string/utf-8 (binding-id binding)) DATASTAR-KEY))
+              (request-bindings/raw request)))
+     (unless datastar-binding
+       (error "No datastar parameter found in request bindings"))
+     (string->jsexpr (bytes->string/utf-8 (binding:form-value datastar-binding)))]
+    [_
+     (define body (request-post-data/raw request))
+     (unless body
+       (error "No request body found"))
+     (string->jsexpr (bytes->string/utf-8 body))]))
+
+(define (patch-elements gen
+                        elements
+                        #:selector [selector #f]
+                        #:mode [mode #f]
+                        #:namespace [namespace #f]
+                        #:use-view-transitions [use-view-transitions #f]
+                        #:event-id [event-id #f]
+                        #:retry-duration [retry-duration #f])
+  (_sse-send gen
+             (_build-patch-elements elements
+                                    #:selector selector
+                                    #:mode mode
+                                    #:namespace namespace
+                                    #:use-view-transitions use-view-transitions
+                                    #:event-id event-id
+                                    #:retry-duration retry-duration)))
+
+(define (remove-elements gen selector #:event-id [event-id #f] #:retry-duration [retry-duration #f])
+  (patch-elements gen
+                  #f
+                  #:selector selector
+                  #:mode ELEMENT-PATCH-MODE-REMOVE
+                  #:event-id event-id
+                  #:retry-duration retry-duration))
+
+(define (patch-signals gen
+                       signals
+                       #:event-id [event-id #f]
+                       #:only-if-missing [only-if-missing #f]
+                       #:retry-duration [retry-duration #f])
+  (_sse-send gen
+             (_build-patch-signals signals
+                                   #:event-id event-id
+                                   #:only-if-missing only-if-missing
+                                   #:retry-duration retry-duration)))
+
+(define (execute-script gen
+                        script
+                        #:auto-remove [auto-remove #t]
+                        #:attributes [attributes #f]
+                        #:event-id [event-id #f]
+                        #:retry-duration [retry-duration #f])
+  (_sse-send gen
+             (_build-execute-script script
+                                    #:auto-remove auto-remove
+                                    #:attributes attributes
+                                    #:event-id event-id
+                                    #:retry-duration retry-duration)))
+
+(define (redirect gen location)
+  (execute-script gen (format "setTimeout(() => window.location = '~a')" location)))
+
+(define (console-log gen message)
+  (execute-script gen (format "console.log('~a')" message)))
+
+; ==========================================================
+; INTERNAL
 ; ==========================================================
 
 (define (_js-bool b)
   (if b "true" "false"))
 
-(define (escape str)
+(define (_escape str)
   (regexp-replace* #px"[&'\"<>]"
                    str
-                   (λ (m)
+                   (lambda (m)
                      (case m
                        [("&") "&amp;"]
                        [("'") "&#39;"]
                        [("\"") "&#34;"]
                        [(">") "&gt;"]
                        [("<") "&lt;"]))))
+
+(define (_sse-closed? gen)
+  (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))
+
+(define (_sse-send gen event-str)
+  (with-handlers ([exn:fail? (lambda (_e) #f)])
+    (call-with-semaphore (sse-semaphore gen)
+                         (lambda ()
+                           (cond
+                             [(_sse-closed? gen) #f]
+                             [else
+                              (write-string event-str (sse-out gen))
+                              (flush-output (sse-out gen))
+                              #t])))))
 
 (define (_send-event event-type
                      data-lines
@@ -69,42 +183,17 @@
                        (not (= retry-duration DEFAULT-SSE-RETRY-DURATION))
                        (string-append "retry: " (number->string retry-duration))))))
 
-  (define formatted-data-lines (map (λ (line) (string-append "data: " line)) data-lines))
+  (define formatted-data-lines (map (lambda (line) (string-append "data: " line)) data-lines))
 
   (string-join (append prefix-lines formatted-data-lines) "\n" #:after-last "\n\n"))
 
-(define (datastar-response events-generator)
-  (response 200
-            #"OK"
-            (current-seconds)
-            #"text/event-stream"
-            (for/list ([(k v) (in-hash SSE-HEADERS)])
-              (make-header (string->bytes/utf-8 k) (string->bytes/utf-8 v)))
-            (λ (out)
-              (parameterize ([current-output-port out])
-                (cond
-                  [(string? events-generator)
-                   (write-string events-generator out)
-                   (flush-output out)]
-                  [(sequence? events-generator)
-                   (for ([event events-generator])
-                     (write-string event out)
-                     (flush-output out))]
-                  [else
-                   (write-string events-generator out)
-                   (flush-output out)])))))
-
-; ==========================================================
-; ELEMENTS
-; ==========================================================
-
-(define (patch-elements elements
-                        #:selector [selector #f]
-                        #:mode [mode #f]
-                        #:namespace [namespace #f]
-                        #:use-view-transitions [use-view-transitions #f]
-                        #:event-id [event-id #f]
-                        #:retry-duration [retry-duration #f])
+(define (_build-patch-elements elements
+                               #:selector [selector #f]
+                               #:mode [mode #f]
+                               #:namespace [namespace #f]
+                               #:use-view-transitions [use-view-transitions #f]
+                               #:event-id [event-id #f]
+                               #:retry-duration [retry-duration #f])
   (define data-lines
     (append (filter values
                     (list (and mode
@@ -118,7 +207,7 @@
                                               " "
                                               (_js-bool use-view-transitions)))))
             (if elements
-                (map (λ (line) (string-append ELEMENTS-DATALINE-LITERAL " " line))
+                (map (lambda (line) (string-append ELEMENTS-DATALINE-LITERAL " " line))
                      (string-split elements "\n"))
                 '())))
 
@@ -127,69 +216,10 @@
                #:event-id event-id
                #:retry-duration retry-duration))
 
-(define (remove-elements selector #:event-id [event-id #f] #:retry-duration [retry-duration #f])
-  (patch-elements #f
-                  #:selector selector
-                  #:mode ELEMENT-PATCH-MODE-REMOVE
-                  #:event-id event-id
-                  #:retry-duration retry-duration))
-
-(define (execute-script script
-                        #:auto-remove [auto-remove #t]
-                        #:attributes [attributes #f]
-                        #:event-id [event-id #f]
-                        #:retry-duration [retry-duration #f])
-  (define attribute-string
-    (string-join (filter values
-                         (list (and auto-remove "data-effect=\"el.remove()\"")
-                               (match attributes
-                                 [(? hash?)
-                                  (string-join (for/list ([(k v) (in-hash attributes)])
-                                                 (format "~a=\"~a\"" k (escape (format "~a" v))))
-                                               " ")]
-                                 [(? list?) (string-join attributes " ")]
-                                 [#f #f])))
-                 " "))
-
-  (define script-tag
-    (format "<script~a>~a</script>"
-            (if (string=? attribute-string "")
-                ""
-                (string-append " " attribute-string))
-            script))
-
-  (patch-elements script-tag
-                  #:mode ELEMENT-PATCH-MODE-APPEND
-                  #:selector "body"
-                  #:event-id event-id
-                  #:retry-duration retry-duration))
-
-(define (redirect location)
-  (execute-script (format "setTimeout(() => window.location = '~a')" location)))
-
-; ==========================================================
-; SIGNALS
-; ==========================================================
-
-(define (read-signals request)
-  (match (request-method request)
-    [#"GET"
-     (define datastar-binding
-       (findf (λ (binding) (equal? (bytes->string/utf-8 (binding-id binding)) DATASTAR-KEY))
-              (request-bindings/raw request)))
-     (unless datastar-binding
-       (error "No datastar parameter found in request bindings"))
-     (string->jsexpr (bytes->string/utf-8 (binding:form-value datastar-binding)))]
-    [_
-     (define body (request-post-data/raw request))
-     (unless body
-       (error "No request body found"))
-     (string->jsexpr (bytes->string/utf-8 body))]))
-
-(define (patch-signals signals
-                       #:event-id [event-id #f]
-                       #:only-if-missing [only-if-missing #f]
-                       #:retry-duration [retry-duration #f])
+(define (_build-patch-signals signals
+                              #:event-id [event-id #f]
+                              #:only-if-missing [only-if-missing #f]
+                              #:retry-duration [retry-duration #f])
   (define signals-str
     (if (string? signals)
         signals
@@ -202,10 +232,40 @@
                                (string-append ONLY-IF-MISSING-DATALINE-LITERAL
                                               " "
                                               (_js-bool only-if-missing)))))
-            (map (λ (line) (string-append SIGNALS-DATALINE-LITERAL " " line))
+            (map (lambda (line) (string-append SIGNALS-DATALINE-LITERAL " " line))
                  (string-split signals-str "\n"))))
 
   (_send-event EVENT-TYPE-PATCH-SIGNALS
                data-lines
                #:event-id event-id
                #:retry-duration retry-duration))
+
+(define (_build-execute-script script
+                               #:auto-remove [auto-remove #t]
+                               #:attributes [attributes #f]
+                               #:event-id [event-id #f]
+                               #:retry-duration [retry-duration #f])
+  (define attribute-string
+    (string-join (filter values
+                         (list (and auto-remove "data-effect=\"el.remove()\"")
+                               (match attributes
+                                 [(? hash?)
+                                  (string-join (for/list ([(k v) (in-hash attributes)])
+                                                 (format "~a=\"~a\"" k (_escape (format "~a" v))))
+                                               " ")]
+                                 [(? list?) (string-join attributes " ")]
+                                 [#f #f])))
+                 " "))
+
+  (define script-tag
+    (format "<script~a>~a</script>"
+            (if (string=? attribute-string "")
+                ""
+                (string-append " " attribute-string))
+            script))
+
+  (_build-patch-elements script-tag
+                         #:mode ELEMENT-PATCH-MODE-APPEND
+                         #:selector "body"
+                         #:event-id event-id
+                         #:retry-duration retry-duration))

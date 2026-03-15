@@ -39,85 +39,144 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
            (hash-ref signals-data 'count 0)))
 
   ; Create a Server-Sent Event response
-  (datastar-response
-    (list
+  (datastar-sse req
+    (lambda (sse)
       ; Patch elements in the DOM
-      (patch-elements "<div id=\"output\">Hello from Datastar!</div>")
+      (patch-elements sse "<div id=\"output\">Hello from Datastar!</div>")
 
       ; Remove elements from the DOM
-      (remove-elements "#temporary-element")
+      (remove-elements sse "#temporary-element")
 
       ; Patch signals (update client-side state)
-      (patch-signals (hash 'message "Updated message"
-                            'count (+ (store-count current-store) 1)))
+      (patch-signals sse (hash 'message "Updated message"
+                                'count (+ (store-count current-store) 1)))
 
       ; Execute JavaScript in the browser
-      (execute-script "console.log(\"Hello from server!\")")
+      (execute-script sse "console.log(\"Hello from server!\")")
 
       ; Redirect the browser
-      (redirect "/new-page"))))
+      (redirect sse "/new-page"))))
 }
 
-For more advanced usage with streaming updates, you can use generators:
+For more advanced usage with streaming updates, use the callback to loop directly.
+Send functions return @racket[#t] on success and @racket[#f] when the client has
+disconnected, so you can use the return value to stop the loop:
 
 @codeblock{
 (define (streaming-handler req)
-  (datastar-response
-    (in-generator
+  (datastar-sse req
+    (lambda (sse)
       (let loop ([i 0])
-        (when (< i 10)
-          (yield (patch-signals (hash 'counter i)))
-          (yield (patch-elements
-                   (format "<div id=\"counter\">Count: ~a</div>" i)))
+        (when (and (< i 10)
+                   (patch-elements sse
+                     (format "<div id=\"counter\">Count: ~a</div>" i)))
+          (patch-signals sse (hash 'counter i))
           (sleep 1)
           (loop (+ i 1)))))))
 }
 
+You can also use the @racket[#:on-close] callback for cleanup when the connection ends:
+
+@codeblock{
+(define connections (mutable-set))
+
+(define (streaming-handler req)
+  (datastar-sse req
+    (lambda (sse)
+      (set-add! connections sse)
+      (console-log sse "connected"))
+    #:on-close
+    (lambda (sse)
+      (set-remove! connections sse))))
+}
+
 For more examples, see the @link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory} on GitHub.
 
-@section{Methods}
+@section{SSE Generator}
 
-@defproc[(datastar-response [events (or/c string? (sequence/c string?))]) response?]{
-Creates an HTTP response with proper SSE headers for streaming Datastar events to the browser.
+@defproc[(datastar-sse [request request?]
+                       [on-open (-> sse? any)]
+                       [#:on-close on-close (or/c (-> sse? any) #f) #f]) response?]{
+Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a fresh
+@racket[sse?] generator that can be used to send events to the client. When @racket[on-open]
+returns (or raises an exception), the connection is closed and @racket[on-close] is called
+if provided.
 }
 
-@defproc[(patch-elements [elements (or/c string? #f)]
-                         [#:selector selector (or/c string? #f) #f]
-                         [#:mode mode (or/c string? #f) #f]
-                         [#:namespace namespace (or/c string? #f) #f]
-                         [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
-                         [#:event-id event-id (or/c string? #f) #f]
-                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Patches HTML elements into the DOM. Supports various patch modes including outer, inner, replace, prepend, append, before, after, and remove. The @racket[namespace] parameter can be used to specify SVG or MathML namespaces when patching elements.
+@defproc[(sse? [v any/c]) boolean?]{
+Returns @racket[#t] if @racket[v] is an SSE generator created by @racket[datastar-sse].
 }
 
-@defproc[(remove-elements [selector string?]
+@defproc[(close-sse [sse sse?]) void?]{
+Explicitly closes the SSE connection. This is called automatically when the @racket[on-open]
+callback returns, but can be called earlier if needed. Safe to call multiple times.
+}
+
+@section{Sending Events}
+
+All send functions take an @racket[sse?] generator as their first argument and return
+@racket[#t] on success or @racket[#f] if the connection is closed or an I/O error occurs.
+Sends are thread-safe: multiple threads can send events through the same generator and
+delivery order is serialized.
+
+@defproc[(patch-elements [sse sse?]
+                          [elements (or/c string? #f)]
+                          [#:selector selector (or/c string? #f) #f]
+                          [#:mode mode (or/c string? #f) #f]
+                          [#:namespace namespace (or/c string? #f) #f]
+                          [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
                           [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Removes elements from the DOM by CSS selector. This is a convenience function that calls @racket[patch-elements] with mode @tt{remove}.
+                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+Patches HTML elements into the DOM. Supports various patch modes including outer, inner,
+replace, prepend, append, before, after, and remove. The @racket[namespace] parameter can
+be used to specify SVG or MathML namespaces when patching elements.
 }
+
+@defproc[(remove-elements [sse sse?]
+                           [selector string?]
+                           [#:event-id event-id (or/c string? #f) #f]
+                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+Removes elements from the DOM by CSS selector. This is a convenience function that calls
+@racket[patch-elements] with mode @tt{remove}.
+}
+
+@defproc[(patch-signals [sse sse?]
+                         [signals (or/c string? jsexpr?)]
+                         [#:event-id event-id (or/c string? #f) #f]
+                         [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
+                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+Patches signals into the signal store using RFC 7386 JSON Merge Patch semantics. Supports
+add/update operations, removal by setting to @tt{null}, and nested recursive patching.
+}
+
+@defproc[(execute-script [sse sse?]
+                          [script string?]
+                          [#:auto-remove auto-remove boolean? #t]
+                          [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
+                          [#:event-id event-id (or/c string? #f) #f]
+                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+Executes JavaScript in the browser by injecting a script tag. The script is automatically
+removed after execution unless @racket[auto-remove] is @racket[#f].
+}
+
+@defproc[(redirect [sse sse?]
+                    [location string?]) boolean?]{
+Redirects the browser to a new location using @tt{window.location}. This is a convenience
+function that calls @racket[execute-script].
+}
+
+@defproc[(console-log [sse sse?]
+                       [message string?]) boolean?]{
+Logs a message to the browser console via @tt{console.log}. The message is automatically
+quoted as a JavaScript string. This is a convenience function that calls @racket[execute-script].
+}
+
+@section{Reading Signals}
 
 @defproc[(read-signals [request request?]) jsexpr?]{
-Parses incoming signal data from the browser. For GET requests, extracts data from the @tt{datastar} query parameter. For other methods, parses the request body as JSON.
-}
-
-@defproc[(patch-signals [signals (or/c string? jsexpr?)]
-                        [#:event-id event-id (or/c string? #f) #f]
-                        [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
-                        [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Patches signals into the signal store using RFC 7386 JSON Merge Patch semantics. Supports add/update operations, removal by setting to @tt{null}, and nested recursive patching.
-}
-
-@defproc[(execute-script [script string?]
-                         [#:auto-remove auto-remove boolean? #t]
-                         [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
-                         [#:event-id event-id (or/c string? #f) #f]
-                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) string?]{
-Executes JavaScript in the browser by injecting a script tag. The script is automatically removed after execution unless auto-remove is @racket[#f].
-}
-
-@defproc[(redirect [location string?]) string?]{
-Redirects the browser to a new location using @tt{window.location}. This is a convenience function that calls @racket[execute-script].
+Parses incoming signal data from the browser. For GET requests, extracts data from the
+@tt{datastar} query parameter. For other methods, parses the request body as JSON. This is
+a standalone function that operates on the request and does not require an SSE generator.
 }
 
 @section{Constants}
