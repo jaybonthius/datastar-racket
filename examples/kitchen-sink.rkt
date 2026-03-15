@@ -5,14 +5,13 @@
          racket/generator
          web-server/dispatch
          web-server/http
-         web-server/servlet-dispatch
-         web-server/web-server
+         web-server/servlet-env
          xml)
 
 (struct store (message count) #:transparent)
 
 (define (patch-elements-handler _req)
-  (datastar-response (patch-elements "<div id=\"output\">Hello from Datastar!</div>")))
+  (datastar-response (patch-elements (xexpr->string '(div ([id "output"]) "Hello from Datastar!")))))
 
 (define (remove-elements-handler _req)
   (datastar-response (remove-elements "#temporary-element")))
@@ -46,8 +45,7 @@
   (response/xexpr
    `(html
      (head
-      (style
-       "html,body{height:100%;width:100%;margin:0;padding:0}body{background-image:linear-gradient(to right bottom,oklch(0.424958 0.052808 253.972015),oklch(0.189627 0.038744 264.832977));font-family:monospace,sans-serif}.container{max-width:600px;margin:2rem auto;padding:1.5rem;background-color:oklch(0.916374 0.034554 90.5157);border-radius:8px}div{margin-bottom:1rem;padding:1rem;background-color:oklch(0.8 0.04 90);border-radius:4px;box-shadow:0 1px 4px 0 oklch(0.8 0.01 90/0.08)}h1{color:oklch(0.265104 0.006243 0.522862);text-align:center;margin-bottom:1rem}button{background-color:oklch(0.8 0.04 90);color:oklch(0.265104 0.006243 0.522862);border:none;padding:8px 16px;margin:4px;border-radius:6px;cursor:pointer;font-weight:600}button:hover{background-color:oklch(0.75 0.05 90)}")
+      (link ([rel "stylesheet"] [href "/style.css"]))
       (script ((type "module")
                (src "https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.8/bundles/datastar.js"))))
      (body ((data-signals "{message: '', count: 0, currentTime: 'Not started'}"))
@@ -83,9 +81,9 @@
 
 (printf "Starting server on http://127.0.0.1:8080\n")
 
-(define stop (serve #:dispatch (dispatch/servlet app) #:listen-ip "127.0.0.1" #:port 8080))
-
-(with-handlers ([exn:break? (lambda (_e)
-                              (printf "Shutting down server...\n")
-                              (stop))])
-  (sync/enable-break never-evt))
+(serve/servlet app
+               #:command-line? #t
+               #:listen-ip "127.0.0.1"
+               #:port 8080
+               #:servlet-regexp #rx""
+               #:extra-files-paths (list (build-path (current-directory) "static")))
