@@ -214,7 +214,7 @@ Returns @racket[#t] if @racket[v] is a write profile.
 The default write profile. Writes SSE events uncompressed with no transformation.
 }
 
-For compression support, see the @racketmodname[datastar-brotli] package, which provides a
+For compression support, see the @tt{datastar-brotli} package, which provides a
 Brotli write profile.
 
 @section{Constants}
