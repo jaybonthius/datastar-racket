@@ -15,7 +15,7 @@ jobs:
         with:
           architecture: 'x64'
           distribution: 'full'
-          version: '8.14'
+          version: '9.1'
       - name: Install Package and Dependencies
         run: raco pkg install --auto --batch datastar/
       - name: Run Tests
