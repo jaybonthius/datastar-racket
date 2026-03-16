@@ -7,8 +7,8 @@
 ;; matches the expected SSE format.
 
 (require datastar
-         datastar/brotli
-         (only-in (submod datastar/sse test-support) make-sse)
+         datastar-brotli
+         (only-in (submod datastar/sse internal) make-sse)
          libbrotli
          rackunit)
 

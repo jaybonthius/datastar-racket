@@ -7,11 +7,12 @@
 ;; httptest.NewRecorder and Clojure's ReturnMsgGen pattern.
 
 (require datastar
-         (only-in (submod datastar/sse test-support) make-sse)
+         (only-in (submod datastar/sse internal) make-sse make-write-profile)
          json
          net/url
          rackunit
-         web-server/http/request-structs)
+         web-server/http/request-structs
+         web-server/http/response-structs)
 
 ;; ============================================================================
 ;; Helpers
@@ -290,6 +291,57 @@
                   8080
                   "127.0.0.1"))
   (check-exn exn:fail? (lambda () (read-signals req)) "should raise when POST body is missing"))
+
+;; ============================================================================
+;; Accept-Encoding fallback tests
+;; ============================================================================
+
+;; A fake write-profile that claims content-encoding "br" but does no
+;; actual compression — just enough to test the negotiation logic.
+(define fake-br-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) "br"))
+
+(define (make-request-with-accept-encoding accept-encoding)
+  (make-request #"GET"
+                (url "http" #f "localhost" 8080 #t (list (path/param "test" '())) '() #f)
+                (if accept-encoding
+                    (list (make-header #"Accept-Encoding" (string->bytes/utf-8 accept-encoding)))
+                    '())
+                (delay
+                  '())
+                #f
+                "127.0.0.1"
+                8080
+                "127.0.0.1"))
+
+(define (response-has-content-encoding? resp encoding)
+  (for/or ([h (in-list (response-headers resp))])
+    (and (equal? (header-field h) #"Content-Encoding")
+         (equal? (header-value h) (string->bytes/utf-8 encoding)))))
+
+(test-case "accept-encoding: brotli used when client accepts br"
+  (define req (make-request-with-accept-encoding "gzip, deflate, br"))
+  (define resp (datastar-sse req (lambda (sse) (void)) #:write-profile fake-br-profile))
+  (check-true (response-has-content-encoding? resp "br")))
+
+(test-case "accept-encoding: falls back when client does not accept br"
+  (define req (make-request-with-accept-encoding "gzip, deflate"))
+  (define resp (datastar-sse req (lambda (sse) (void)) #:write-profile fake-br-profile))
+  (check-false (response-has-content-encoding? resp "br")))
+
+(test-case "accept-encoding: falls back when no Accept-Encoding header"
+  (define req (make-request-with-accept-encoding #f))
+  (define resp (datastar-sse req (lambda (sse) (void)) #:write-profile fake-br-profile))
+  (check-false (response-has-content-encoding? resp "br")))
+
+(test-case "accept-encoding: quality weights are stripped"
+  (define req (make-request-with-accept-encoding "gzip;q=1.0, br;q=0.5"))
+  (define resp (datastar-sse req (lambda (sse) (void)) #:write-profile fake-br-profile))
+  (check-true (response-has-content-encoding? resp "br")))
+
+(test-case "accept-encoding: basic profile always works regardless of headers"
+  (define req (make-request-with-accept-encoding "gzip, deflate"))
+  (define resp (datastar-sse req (lambda (sse) (void)) #:write-profile basic-write-profile))
+  (check-false (response-has-content-encoding? resp "br")))
 
 (module+ test
   (displayln "Unit tests complete."))

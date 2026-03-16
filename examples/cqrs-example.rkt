@@ -1,6 +1,7 @@
 #lang racket
 
 (require datastar
+         datastar-brotli
          racket/async-channel
          web-server/dispatch
          web-server/http
@@ -59,6 +60,8 @@
 ;; Read side — long-lived SSE connection with fat morphs
 ;; ---------------------------------------------------------------------------
 
+(define brotli-profile (make-brotli-write-profile))
+
 (define (events-handler req)
   (define ch (subscribe!))
   (datastar-sse req
@@ -71,7 +74,8 @@
                       (patch-signals sse (hash 'input "")))
                     (when ok
                       (loop))))
-                #:on-close (lambda (_sse) (unsubscribe! ch))))
+                #:on-close (lambda (_sse) (unsubscribe! ch))
+                #:write-profile brotli-profile))
 
 ;; ---------------------------------------------------------------------------
 ;; Write side — mutate state and notify SSE loop

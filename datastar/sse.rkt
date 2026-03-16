@@ -44,41 +44,15 @@
                        [read-signals (-> request? jsexpr?)]
                        [sse? (-> any/c boolean?)]
                        [write-profile? (-> any/c boolean?)]
-                       [basic-write-profile write-profile?]
-                       [make-write-profile
-                        (-> (-> output-port? output-port?)
-                            (-> output-port? output-port? any)
-                            (or/c string? #f)
-                            write-profile?)]))
-
-; ==========================================================
-; WRITE PROFILES
-; ==========================================================
-
-;; A write profile controls how SSE event data is written to the output port.
-;; This abstraction allows optional compression (e.g., brotli) to be layered
-;; onto the SSE output stream without changing the core event-building logic.
-;;
-;; Fields:
-;;   wrap-output    : (-> output-port? output-port?)
-;;                    Wraps the raw output port (e.g., with a compression port).
-;;                    For no compression, this is `values` (identity).
-;;   flush!         : (-> output-port? output-port? void?)
-;;                    Flush strategy taking (wrapped-port raw-port).
-;;                    For compression, this must "double flush" — first the
-;;                    compression port (to emit compressed bytes), then the
-;;                    underlying raw port (to push bytes over the network).
-;;   content-encoding : (or/c string? #f)
-;;                      Value for the Content-Encoding response header.
-;;                      #f means no encoding header is added.
-(struct write-profile (wrap-output flush! content-encoding) #:constructor-name make-write-profile)
-
-;; The default write profile: no compression, simple flush, no Content-Encoding.
-(define basic-write-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) #f))
+                       [basic-write-profile write-profile?]))
 
 ; ==========================================================
 ; PUBLIC API
 ; ==========================================================
+
+(struct write-profile (wrap-output flush! content-encoding) #:constructor-name make-write-profile)
+
+(define basic-write-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) #f))
 
 (struct sse (out raw-out flush! semaphore closed-box) #:constructor-name make-sse)
 
@@ -86,9 +60,6 @@
   (unless (unbox (sse-closed-box gen))
     (set-box! (sse-closed-box gen) #t)
     (with-handlers ([exn:fail? void])
-      ;; If a compression port wraps the raw port, close it to finalize
-      ;; the compression stream. The brotli port is created with #:close? #f
-      ;; so this does NOT close the underlying raw port.
       (unless (eq? (sse-out gen) (sse-raw-out gen))
         (close-output-port (sse-out gen)))
       (flush-output (sse-raw-out gen)))))
@@ -97,7 +68,10 @@
                       on-open
                       #:on-close [on-close #f]
                       #:write-profile [wp basic-write-profile])
-  (define encoding (write-profile-content-encoding wp))
+  (define wp*
+    (let ([enc (write-profile-content-encoding wp)])
+      (if (and enc (not (_accepts-encoding? request enc))) basic-write-profile wp)))
+  (define encoding (write-profile-content-encoding wp*))
   (define extra-headers
     (for/list ([(k v) (in-hash SSE-HEADERS)])
       (make-header (string->bytes/utf-8 k) (string->bytes/utf-8 v))))
@@ -111,9 +85,9 @@
             #"text/event-stream"
             all-headers
             (lambda (out)
-              (define wrapped-out ((write-profile-wrap-output wp) out))
+              (define wrapped-out ((write-profile-wrap-output wp*) out))
               (define gen
-                (make-sse wrapped-out out (write-profile-flush! wp) (make-semaphore 1) (box #f)))
+                (make-sse wrapped-out out (write-profile-flush! wp*) (make-semaphore 1) (box #f)))
               (dynamic-wind void
                             (lambda () (on-open gen))
                             (lambda ()
@@ -194,6 +168,15 @@
 ; ==========================================================
 ; INTERNAL
 ; ==========================================================
+
+(define (_accepts-encoding? request encoding)
+  (define accept-header
+    (for/or ([h (in-list (request-headers/raw request))])
+      (and (equal? (string-downcase (bytes->string/utf-8 (header-field h))) "accept-encoding")
+           (header-value h))))
+  (and accept-header
+       (for/or ([part (in-list (regexp-split #rx"," (bytes->string/utf-8 accept-header)))])
+         (string-ci=? (string-trim (car (string-split part ";"))) encoding))))
 
 (define (_js-bool b)
   (if b "true" "false"))
@@ -322,14 +305,9 @@
                          #:event-id event-id
                          #:retry-duration retry-duration))
 
-; ==========================================================
-; TEST SUPPORT
-; ==========================================================
-
-(module+ test-support
+(module+ internal
   (provide make-sse
            make-write-profile
-           basic-write-profile
            write-profile?
            write-profile-wrap-output
            write-profile-flush!
