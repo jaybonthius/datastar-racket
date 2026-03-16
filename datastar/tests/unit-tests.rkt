@@ -7,7 +7,7 @@
 ;; httptest.NewRecorder and Clojure's ReturnMsgGen pattern.
 
 (require datastar
-         (submod datastar/sse test-support)
+         (only-in (submod datastar/sse test-support) make-sse)
          json
          net/url
          rackunit
@@ -19,9 +19,11 @@
 
 ;; Creates a fresh sse generator backed by an output-string port.
 ;; Returns (values gen port) so tests can inspect written output.
+;; Uses the basic (no compression) flush: just flush the raw port.
 (define (make-test-sse)
   (define out (open-output-string))
-  (values (make-sse out (make-semaphore 1) (box #f)) out))
+  (values (make-sse out out (lambda (_wrapped raw) (flush-output raw)) (make-semaphore 1) (box #f))
+          out))
 
 ;; Reads everything written to the string port so far and resets it.
 (define (get-output port)

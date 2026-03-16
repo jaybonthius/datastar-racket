@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,5 +22,41 @@ jobs:
           version: '9.1'
       - name: Install Package and Dependencies
         run: raco pkg install --auto --batch datastar/
-      - name: Run Tests
-        run: raco test -s sdk-test datastar/tests
+      - name: Run Unit Tests
+        run: raco test datastar/tests/unit-tests.rkt
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Racket
+        uses: Bogdanp/setup-racket@v1.15
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          version: '9.1'
+      - name: Install Package and Dependencies
+        run: raco pkg install --auto --batch datastar/
+      - name: Run Integration Tests
+        run: raco test datastar/tests/integration-tests.rkt
+
+  sdk-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Racket
+        uses: Bogdanp/setup-racket@v1.15
+        with:
+          architecture: 'x64'
+          distribution: 'full'
+          version: '9.1'
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - name: Install Package and Dependencies
+        run: raco pkg install --auto --batch datastar/
+      - name: Run SDK Tests
+        run: raco test datastar/tests/sdk-tests/
