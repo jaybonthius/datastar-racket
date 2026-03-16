@@ -1,8 +1,8 @@
 #lang racket/base
 
-(require libbrotli
-         racket/contract/base
-         (submod datastar/sse internal))
+(require (submod datastar/sse internal)
+         libbrotli
+         racket/contract/base)
 
 (provide (contract-out
           [make-brotli-write-profile

@@ -239,7 +239,9 @@
                                (not (string=? mode DEFAULT-ELEMENT-PATCH-MODE))
                                (string-append MODE-DATALINE-LITERAL " " mode))
                           (and selector (string-append SELECTOR-DATALINE-LITERAL " " selector))
-                          (and namespace (string-append NAMESPACE-DATALINE-LITERAL " " namespace))
+                          (and namespace
+                               (not (string=? namespace DEFAULT-ELEMENT-NAMESPACE))
+                               (string-append NAMESPACE-DATALINE-LITERAL " " namespace))
                           (and use-view-transitions
                                (not (eq? use-view-transitions DEFAULT-ELEMENTS-USE-VIEW-TRANSITIONS))
                                (string-append USE-VIEW-TRANSITION-DATALINE-LITERAL
