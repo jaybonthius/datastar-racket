@@ -98,7 +98,7 @@
               #f
               (apply string-append (reverse lines)))]
          [else
-          (define line (read-line in))
+          (define line (read-line in 'any))
           (cond
             [(eof-object? line)
              (if (null? lines)
@@ -123,7 +123,7 @@
        (cond
          [(not ready) (apply string-append (reverse lines))]
          [else
-          (define line (read-line in))
+          (define line (read-line in 'any))
           (cond
             [(eof-object? line) (apply string-append (reverse lines))]
             [else (loop (cons (string-append line "\n") lines))])])])))

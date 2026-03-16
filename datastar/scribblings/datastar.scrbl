@@ -96,11 +96,18 @@ For more examples, see the @link["https://github.com/jaybonthius/datastar-racket
 
 @defproc[(datastar-sse [request request?]
                        [on-open (-> sse? any)]
-                       [#:on-close on-close (or/c (-> sse? any) #f) #f]) response?]{
+                       [#:on-close on-close (or/c (-> sse? any) #f) #f]
+                       [#:write-profile write-profile write-profile? basic-write-profile]) response?]{
 Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a fresh
 @racket[sse?] generator that can be used to send events to the client. When @racket[on-open]
 returns (or raises an exception), the connection is closed and @racket[on-close] is called
 if provided.
+
+The @racket[write-profile] controls how SSE bytes are written to the connection. The default
+@racket[basic-write-profile] writes uncompressed. Custom write profiles can add compression
+(see @secref["write-profiles"]). If the client does not advertise support for the profile's
+content encoding in @tt{Accept-Encoding}, the SDK automatically falls back to
+@racket[basic-write-profile].
 
 @bold{Important:} When using Racket's built-in web server (via @racket[serve/servlet] or
 @racket[serve]), two settings are required for SSE to work correctly:
@@ -191,6 +198,24 @@ Parses incoming signal data from the browser. For GET requests, extracts data fr
 @tt{datastar} query parameter. For other methods, parses the request body as JSON. This is
 a standalone function that operates on the request and does not require an SSE generator.
 }
+
+@section[#:tag "write-profiles"]{Write Profiles}
+
+A write profile controls how SSE bytes are written to the underlying connection. This
+abstraction allows pluggable compression (or other transforms) without changing the
+event-sending code. The @racket[#:write-profile] parameter on @racket[datastar-sse]
+accepts any @racket[write-profile?] value.
+
+@defproc[(write-profile? [v any/c]) boolean?]{
+Returns @racket[#t] if @racket[v] is a write profile.
+}
+
+@defthing[basic-write-profile write-profile?]{
+The default write profile. Writes SSE events uncompressed with no transformation.
+}
+
+For compression support, see the @racketmodname[datastar-brotli] package, which provides a
+Brotli write profile.
 
 @section{Constants}
 

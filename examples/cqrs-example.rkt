@@ -124,7 +124,7 @@
                   [("todo" "delete" (string-arg)) #:method "post" todo-delete]
                   [else not-found-handler]))
 
-(printf "Starting CQRS example on http://127.0.0.1:8080~n")
+(display "Starting CQRS example on http://127.0.0.1:8080~n")
 
 (serve/servlet app
                #:command-line? #t

@@ -4,7 +4,7 @@
 
 (define deps '("base" "web-server-lib" "net-lib"))
 
-(define build-deps '("scribble-lib" "racket-doc" "rackunit-lib" "web-server-doc"))
+(define build-deps '("scribble-lib" "racket-doc" "rackunit-lib" "web-server-doc" "datastar-brotli"))
 
 (define scribblings '(("scribblings/datastar.scrbl")))
 

@@ -4,7 +4,9 @@
 
 (define deps '("base" "datastar" "libbrotli"))
 
-(define build-deps '("rackunit-lib"))
+(define build-deps '("rackunit-lib" "scribble-lib" "racket-doc"))
+
+(define scribblings '(("scribblings/datastar-brotli.scrbl")))
 
 (define pkg-desc "Brotli compression support for the Datastar SDK")
 
