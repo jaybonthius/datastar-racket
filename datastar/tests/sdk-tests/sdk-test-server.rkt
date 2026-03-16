@@ -5,15 +5,17 @@
 
 (provide start-test-server)
 
-(define (handle-execute-script event)
-  (execute-script (hash-ref event 'script "")
+(define (handle-execute-script sse event)
+  (execute-script sse
+                  (hash-ref event 'script "")
                   #:auto-remove (hash-ref event 'autoRemove #t)
                   #:attributes (hash-ref event 'attributes #f)
                   #:event-id (hash-ref event 'eventId #f)
                   #:retry-duration (hash-ref event 'retryDuration #f)))
 
-(define (handle-patch-elements event)
-  (patch-elements (hash-ref event 'elements #f)
+(define (handle-patch-elements sse event)
+  (patch-elements sse
+                  (hash-ref event 'elements #f)
                   #:selector (hash-ref event 'selector #f)
                   #:mode (hash-ref event 'mode #f)
                   #:namespace (hash-ref event 'namespace #f)
@@ -21,24 +23,27 @@
                   #:event-id (hash-ref event 'eventId #f)
                   #:retry-duration (hash-ref event 'retryDuration #f)))
 
-(define (handle-patch-signals event)
+(define (handle-patch-signals sse event)
   (define signals-data
     (cond
       [(hash-has-key? event 'signals-raw) (hash-ref event 'signals-raw)]
       [(hash-has-key? event 'signals) (hash-ref event 'signals)]
       [else (hash)]))
-  (patch-signals signals-data
+  (patch-signals sse
+                 signals-data
                  #:only-if-missing (hash-ref event 'onlyIfMissing #f)
                  #:event-id (hash-ref event 'eventId #f)
                  #:retry-duration (hash-ref event 'retryDuration #f)))
 
-(define (handle-remove-elements event)
-  (remove-elements (hash-ref event 'selector "")
+(define (handle-remove-elements sse event)
+  (remove-elements sse
+                   (hash-ref event 'selector "")
                    #:event-id (hash-ref event 'eventId #f)
                    #:retry-duration (hash-ref event 'retryDuration #f)))
 
-(define (handle-remove-signals event)
-  (patch-signals (hash)
+(define (handle-remove-signals sse event)
+  (patch-signals sse
+                 (hash)
                  #:event-id (hash-ref event 'eventId #f)
                  #:retry-duration (hash-ref event 'retryDuration #f)))
 
@@ -54,21 +59,19 @@
         "removeSignals"
         handle-remove-signals))
 
+(define (process-single-event sse event)
+  (define event-type (hash-ref event 'type ""))
+  (define handler (hash-ref event-handlers event-type #f))
+  (when handler
+    (handler sse event)))
+
 (define (test-handler req)
   (define signals (read-signals req))
   (define events (hash-ref signals 'events '()))
-  (process-events req events))
-
-(define (process-events _req events)
-  (define results
-    (for/list ([event events])
-      (process-single-event event)))
-  (datastar-response results))
-
-(define (process-single-event event)
-  (define event-type (hash-ref event 'type ""))
-  (define handler (hash-ref event-handlers event-type #f))
-  (handler event))
+  (datastar-sse req
+                (lambda (sse)
+                  (for ([event events])
+                    (process-single-event sse event)))))
 
 (define (start-test-server #:port [port 7331])
   (serve/servlet test-handler
