@@ -5,60 +5,71 @@
          racket/match
          racket/string
          web-server/http
+         web-server/http/response
+         web-server/private/connection-manager
+         web-server/servlet/servlet-structs
          "constants.rkt")
 
 (define element-patch-mode/c
   (or/c "outer" "inner" "remove" "replace" "prepend" "append" "before" "after" #f))
 (define element-namespace/c (or/c "html" "svg" "mathml" #f))
 
-(provide (contract-out [datastar-sse
-                        (->* [request? (-> sse? any)]
-                             [#:on-close (or/c (-> sse? any) #f) #:write-profile write-profile?]
-                             response?)]
-                       [patch-elements
-                        (->* [sse? (or/c string? #f)]
-                             [#:selector (or/c string? #f)
-                              #:mode element-patch-mode/c
-                              #:namespace element-namespace/c
-                              #:use-view-transitions (or/c boolean? #f)
-                              #:event-id (or/c string? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             boolean?)]
-                       [remove-elements
-                        (->* [sse? string?]
-                             [#:event-id (or/c string? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             boolean?)]
-                       [patch-signals
-                        (->* [sse? (or/c string? jsexpr?)]
-                             [#:event-id (or/c string? #f)
-                              #:only-if-missing (or/c boolean? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             boolean?)]
-                       [execute-script
-                        (->* [sse? string?]
-                             [#:auto-remove boolean?
-                              #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
-                              #:event-id (or/c string? #f)
-                              #:retry-duration (or/c exact-positive-integer? #f)]
-                             boolean?)]
-                       [redirect (-> sse? string? boolean?)]
-                       [console-log (-> sse? string? boolean?)]
-                       [close-sse (-> sse? void?)]
-                       [read-signals (-> request? jsexpr?)]
-                       [sse? (-> any/c boolean?)]
-                       [write-profile? (-> any/c boolean?)]
-                       [basic-write-profile write-profile?]))
+(provide (contract-out
+          [datastar-sse
+           (->* [request? (-> sse? any)]
+                [#:on-close (or/c (-> sse? any) #f) #:write-profile write-profile?]
+                response?)]
+          [dispatch/datastar (-> (-> request? can-be-response?) (-> connection? request? any))]
+          [patch-elements
+           (->* [sse? (or/c string? #f)]
+                [#:selector (or/c string? #f)
+                 #:mode element-patch-mode/c
+                 #:namespace element-namespace/c
+                 #:use-view-transitions (or/c boolean? #f)
+                 #:event-id (or/c string? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [remove-elements
+           (->* [sse? string?]
+                [#:event-id (or/c string? #f) #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [patch-signals
+           (->* [sse? (or/c string? jsexpr?)]
+                [#:event-id (or/c string? #f)
+                 #:only-if-missing (or/c boolean? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [execute-script
+           (->* [sse? string?]
+                [#:auto-remove boolean?
+                 #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
+                 #:event-id (or/c string? #f)
+                 #:retry-duration (or/c exact-positive-integer? #f)]
+                boolean?)]
+          [redirect (-> sse? string? boolean?)]
+          [console-log (-> sse? string? boolean?)]
+          [close-sse (-> sse? void?)]
+          [read-signals (-> request? jsexpr?)]
+          [sse? (-> any/c boolean?)]
+          [write-profile? (-> any/c boolean?)]
+          [basic-write-profile write-profile?]))
 
 ; ==========================================================
 ; PUBLIC API
 ; ==========================================================
+
+(define current-datastar-connection (make-parameter #f))
 
 (struct write-profile (wrap-output flush! content-encoding) #:constructor-name make-write-profile)
 
 (define basic-write-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) #f))
 
 (struct sse (out raw-out flush! semaphore closed-box) #:constructor-name make-sse)
+
+(define (dispatch/datastar servlet)
+  (lambda (conn req)
+    (parameterize ([current-datastar-connection conn])
+      (output-response conn (servlet req)))))
 
 (define (close-sse gen)
   (unless (unbox (sse-closed-box gen))
@@ -83,6 +94,7 @@
     (if encoding
         (cons (make-header #"Content-Encoding" (string->bytes/utf-8 encoding)) extra-headers)
         extra-headers))
+  (define conn (current-datastar-connection))
   (response 200
             #"OK"
             (current-seconds)
@@ -92,9 +104,19 @@
               (define wrapped-out ((write-profile-wrap-output wp*) out))
               (define gen
                 (make-sse wrapped-out out (write-profile-flush! wp*) (make-semaphore 1) (box #f)))
+              (define on-open-thread (current-thread))
+              (define monitor-thread
+                (and conn
+                     (thread (lambda ()
+                               (sync (connection-i-port conn))
+                               (break-thread on-open-thread)))))
               (dynamic-wind void
-                            (lambda () (on-open gen))
                             (lambda ()
+                              (with-handlers ([exn:break? void])
+                                (on-open gen)))
+                            (lambda ()
+                              (when monitor-thread
+                                (kill-thread monitor-thread))
                               (close-sse gen)
                               (when on-close
                                 (on-close gen)))))))

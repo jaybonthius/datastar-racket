@@ -5,8 +5,7 @@
          racket/async-channel
          web-server/dispatch
          web-server/http
-         web-server/safety-limits
-         web-server/servlet-env
+         web-server/web-server
          xml)
 
 (file-stream-buffer-mode (current-output-port) 'line)
@@ -66,6 +65,7 @@
   (define ch (subscribe!))
   (datastar-sse req
                 (lambda (sse)
+                  (printf "Client connected~n")
                   (patch-elements sse (xexpr->string (render-main)))
                   (let loop ()
                     (define cmd (async-channel-get ch))
@@ -74,7 +74,9 @@
                       (patch-signals sse (hash 'input "")))
                     (when ok
                       (loop))))
-                #:on-close (lambda (_sse) (unsubscribe! ch))
+                #:on-close (lambda (_sse)
+                             (printf "Client disconnected~n")
+                             (unsubscribe! ch))
                 #:write-profile brotli-profile))
 
 ;; ---------------------------------------------------------------------------
@@ -124,12 +126,13 @@
                   [("todo" "delete" (string-arg)) #:method "post" todo-delete]
                   [else not-found-handler]))
 
-(display "Starting CQRS example on http://127.0.0.1:8080~n")
+(printf "Starting CQRS example on http://127.0.0.1:8080~n")
 
-(serve/servlet app
-               #:command-line? #t
-               #:listen-ip "127.0.0.1"
-               #:port 8080
-               #:servlet-regexp #rx""
-               #:connection-close? #t
-               #:safety-limits (make-safety-limits #:response-send-timeout +inf.0))
+(define stop
+  (serve #:dispatch (dispatch/datastar app)
+         #:listen-ip "127.0.0.1"
+         #:port 8080
+         #:connection-close? #t))
+
+(with-handlers ([exn:break? (lambda (_e) (stop))])
+  (sync/enable-break never-evt))

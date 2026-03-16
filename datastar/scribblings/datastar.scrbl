@@ -6,6 +6,9 @@
                      racket/contract
                      web-server/http/request-structs
                      web-server/http/response-structs
+                     web-server/private/connection-manager
+                     web-server/servlet/servlet-structs
+                     web-server/web-server
                      json))
 
 @title{Datastar Racket SDK}
@@ -23,10 +26,9 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 @codeblock{
 #lang racket
 
-(require web-server/dispatch
-         web-server/servlet-dispatch
+(require datastar
          web-server/http
-         datastar
+         web-server/web-server
          json)
 
 (struct store (message count) #:transparent)
@@ -56,6 +58,16 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 
       ; Redirect the browser
       (redirect sse "/new-page"))))
+
+(define stop
+  (serve
+   #:dispatch (dispatch/datastar handler)
+   #:listen-ip "127.0.0.1"
+   #:port 8000
+   #:connection-close? #t))
+
+(with-handlers ([exn:break? (lambda (e) (stop))])
+  (sync/enable-break never-evt))
 }
 
 For more advanced usage with streaming updates, use the callback to loop directly.
@@ -92,6 +104,28 @@ You can also use the @racket[#:on-close] callback for cleanup when the connectio
 
 For more examples, see the @link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory} on GitHub.
 
+@section{Dispatcher}
+
+@defproc[(dispatch/datastar [servlet (-> request? can-be-response?)]) (-> connection? request? any)]{
+Wraps a servlet into a @link["https://docs.racket-lang.org/web-server-internal/dispatch.html"]{dispatcher}
+for use with @racket[serve]. This is the recommended way to run Datastar applications.
+
+When used, @racket[datastar-sse] automatically monitors the underlying TCP connection and
+detects client disconnections immediately. This ensures that the @racket[on-open] callback
+is interrupted and @racket[on-close] fires as soon as the client goes away, rather than
+waiting for the next failed write.
+
+@racket[dispatch/datastar] can be composed with the standard web server dispatchers
+(@tt{dispatch-sequencer}, @tt{dispatch-filter}, @tt{dispatch-files}, etc.) for routing
+and static file serving. See the
+@link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory}
+for a full example.
+
+If @racket[dispatch/servlet] is used instead of @racket[dispatch/datastar], everything
+still works but immediate disconnect detection is not available; disconnections will only
+be detected on the next failed write.
+}
+
 @section{SSE Generator}
 
 @defproc[(datastar-sse [request request?]
@@ -103,24 +137,21 @@ Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a 
 returns (or raises an exception), the connection is closed and @racket[on-close] is called
 if provided.
 
+When the server is set up with @racket[dispatch/datastar], client disconnections are detected
+immediately: the SDK monitors the TCP input port and interrupts @racket[on-open] as soon as
+the client goes away, ensuring prompt cleanup via @racket[on-close].
+
 The @racket[write-profile] controls how SSE bytes are written to the connection. The default
 @racket[basic-write-profile] writes uncompressed. Custom write profiles can add compression
 (see @secref["write-profiles"]). If the client does not advertise support for the profile's
 content encoding in @tt{Accept-Encoding}, the SDK automatically falls back to
 @racket[basic-write-profile].
 
-@bold{Important:} When using Racket's built-in web server (via @racket[serve/servlet] or
-@racket[serve]), two settings are required for SSE to work correctly:
-
-@itemlist[
-  @item{@racket[#:connection-close? #t] — Without this, the web server uses chunked transfer
-        encoding with an internal pipe that silently absorbs writes to dead connections,
-        preventing send functions from returning @racket[#f] and @racket[on-close] from firing.}
-  @item{@racket[#:safety-limits (make-safety-limits #:response-send-timeout +inf.0)] — The
-        default @racket[response-send-timeout] of 60 seconds kills connections that go idle
-        between sends. SSE connections may be long-lived and idle, so this timeout must be
-        disabled. Requires @racket[(require web-server/safety-limits)].}
-]
+@bold{Important:} When using @racket[serve], the @racket[#:connection-close?] setting must be
+@racket[#t] for SSE to work correctly. Without this, the web server uses chunked transfer
+encoding with an internal pipe that silently absorbs writes to dead connections, preventing
+send functions from returning @racket[#f], disconnect detection from working, and
+@racket[on-close] from firing.
 }
 
 @defproc[(sse? [v any/c]) boolean?]{
