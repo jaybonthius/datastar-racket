@@ -269,3 +269,10 @@
                          #:selector "body"
                          #:event-id event-id
                          #:retry-duration retry-duration))
+
+; ==========================================================
+; TEST SUPPORT
+; ==========================================================
+
+(module+ test-support
+  (provide make-sse))
