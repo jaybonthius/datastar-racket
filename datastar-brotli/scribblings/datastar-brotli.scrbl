@@ -18,17 +18,6 @@ support for the @racketmodname[datastar] SDK. Pass the resulting write profile t
 events on the wire. The SDK automatically falls back to uncompressed output when the client
 does not advertise @tt{br} in its @tt{Accept-Encoding} header.
 
-@section{Prerequisites}
-
-This package depends on the @tt{libbrotli} package, which requires platform-specific native
-libraries. Install them before installing @racketmodname[datastar-brotli]:
-
-@codeblock{
-raco pkg install libbrotli-<platform>  ; native libraries for your platform
-raco pkg install libbrotli             ; Racket bindings
-raco pkg install datastar-brotli
-}
-
 @section{Usage}
 
 @codeblock{
