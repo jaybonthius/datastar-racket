@@ -3,6 +3,7 @@
 @(require scribble/manual
           (for-label datastar-brotli
                      datastar
+                     libbrotli
                      racket/base
                      racket/contract))
 
@@ -37,7 +38,7 @@ does not advertise @tt{br} in its @tt{Accept-Encoding} header.
 
 @defproc[(make-brotli-write-profile [#:quality quality (integer-in 0 11) 5]
                                     [#:window window (integer-in 10 24) 22]
-                                    [#:mode mode exact-nonneg-integer? BROTLI_MODE_TEXT]) write-profile?]{
+                                    [#:mode mode mode/c BROTLI_MODE_TEXT]) write-profile?]{
 Creates a @racket[write-profile?] that compresses SSE output with Brotli.
 
 @itemlist[
@@ -51,14 +52,14 @@ Creates a @racket[write-profile?] that compresses SSE output with Brotli.
 ]
 }
 
-@defthing[BROTLI_MODE_GENERIC exact-nonneg-integer?]{
-Generic mode, no assumptions about content type. Re-exported from @tt{libbrotli}.
+@defthing[BROTLI_MODE_GENERIC mode/c]{
+Generic mode, no assumptions about content type. Re-exported from @racketmodname[libbrotli].
 }
 
-@defthing[BROTLI_MODE_TEXT exact-nonneg-integer?]{
-Text mode, optimized for UTF-8 input. Re-exported from @tt{libbrotli}.
+@defthing[BROTLI_MODE_TEXT mode/c]{
+Text mode, optimized for UTF-8 input. Re-exported from @racketmodname[libbrotli].
 }
 
-@defthing[BROTLI_MODE_FONT exact-nonneg-integer?]{
-Font mode, optimized for WOFF 2.0 fonts. Re-exported from @tt{libbrotli}.
+@defthing[BROTLI_MODE_FONT mode/c]{
+Font mode, optimized for WOFF 2.0 fonts. Re-exported from @racketmodname[libbrotli].
 }
