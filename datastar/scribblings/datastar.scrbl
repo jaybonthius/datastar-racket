@@ -71,20 +71,18 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 }
 
 For more advanced usage with streaming updates, use the callback to loop directly.
-Send functions return @racket[#t] on success and @racket[#f] when the client has
-disconnected, so you can use the return value to stop the loop:
+If the client disconnects or a send fails, an exception is raised which
+@racket[datastar-sse] catches automatically, triggering cleanup via @racket[on-close]:
 
 @codeblock{
 (define (streaming-handler req)
   (datastar-sse req
     (lambda (sse)
-      (let loop ([i 0])
-        (when (and (< i 10)
-                   (patch-elements sse
-                     (format "<div id=\"counter\">Count: ~a</div>" i)))
-          (patch-signals sse (hash 'counter i))
-          (sleep 1)
-          (loop (+ i 1)))))))
+      (for ([i (in-range 10)])
+        (patch-elements sse
+          (format "<div id=\"counter\">Count: ~a</div>" i))
+        (patch-signals sse (hash 'counter i))
+        (sleep 1)))))
 }
 
 You can also use the @racket[#:on-close] callback for cleanup when the connection ends:
@@ -150,8 +148,7 @@ content encoding in @tt{Accept-Encoding}, the SDK automatically falls back to
 @bold{Important:} When using @racket[serve], the @racket[#:connection-close?] setting must be
 @racket[#t] for SSE to work correctly. Without this, the web server uses chunked transfer
 encoding with an internal pipe that silently absorbs writes to dead connections, preventing
-send functions from returning @racket[#f], disconnect detection from working, and
-@racket[on-close] from firing.
+disconnect detection from working and @racket[on-close] from firing.
 }
 
 @defproc[(sse? [v any/c]) boolean?]{
@@ -166,9 +163,11 @@ callback returns, but can be called earlier if needed. Safe to call multiple tim
 @section{Sending Events}
 
 All send functions take an @racket[sse?] generator as their first argument and return
-@racket[#t] on success or @racket[#f] if the connection is closed or an I/O error occurs.
-Sends are thread-safe: multiple threads can send events through the same generator and
-delivery order is serialized.
+All send functions take an @racket[sse?] generator as their first argument. If the
+connection is closed or an I/O error occurs, an exception is raised. Within
+@racket[datastar-sse], these exceptions are caught automatically, triggering cleanup
+via @racket[on-close]. Sends are thread-safe: multiple threads can send events through
+the same generator and delivery order is serialized.
 
 @defproc[(patch-elements [sse sse?]
                           [elements (or/c string? #f)]
@@ -177,7 +176,7 @@ delivery order is serialized.
                           [#:namespace namespace (or/c "html" "svg" "mathml" #f) #f]
                           [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
                           [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
 Patches HTML elements into the DOM.
 
 The @racket[#:mode] parameter controls how elements are patched. Valid modes are
@@ -193,7 +192,7 @@ The @racket[#:namespace] parameter specifies the namespace for creating new elem
 @defproc[(remove-elements [sse sse?]
                            [selector string?]
                            [#:event-id event-id (or/c string? #f) #f]
-                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
 Removes elements from the DOM by CSS selector. This is a convenience function that calls
 @racket[patch-elements] with mode @tt{remove}.
 }
@@ -202,7 +201,7 @@ Removes elements from the DOM by CSS selector. This is a convenience function th
                          [signals (or/c string? jsexpr?)]
                          [#:event-id event-id (or/c string? #f) #f]
                          [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
-                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
 Patches signals into the signal store using RFC 7386 JSON Merge Patch semantics. Supports
 add/update operations, removal by setting to @tt{null}, and nested recursive patching.
 }
@@ -212,19 +211,19 @@ add/update operations, removal by setting to @tt{null}, and nested recursive pat
                           [#:auto-remove auto-remove boolean? #t]
                           [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
                           [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
+                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
 Executes JavaScript in the browser by injecting a script tag. The script is automatically
 removed after execution unless @racket[auto-remove] is @racket[#f].
 }
 
 @defproc[(redirect [sse sse?]
-                    [location string?]) boolean?]{
+                    [location string?]) void?]{
 Redirects the browser to a new location using @tt{window.location}. This is a convenience
 function that calls @racket[execute-script].
 }
 
 @defproc[(console-log [sse sse?]
-                       [message string?]) boolean?]{
+                       [message string?]) void?]{
 Logs a message to the browser console via @tt{console.log}. The message is automatically
 quoted as a JavaScript string. This is a convenience function that calls @racket[execute-script].
 }

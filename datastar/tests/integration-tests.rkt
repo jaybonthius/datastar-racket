@@ -278,7 +278,7 @@
                   (lambda (sse)
                     (patch-elements sse "<div>before-close</div>")
                     (close-sse sse)
-                    ;; Send after close should return #f
+                    ;; Send after close should raise
                     (patch-elements sse "<div>after-close</div>"))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-connection port "/"))
@@ -312,9 +312,8 @@
                       (cond
                         [(eq? msg 'stop) (void)]
                         [else
-                         (define ok (patch-elements sse (format "<div id=\"v\">~a</div>" msg)))
-                         (when ok
-                           (loop))])))
+                         (patch-elements sse (format "<div id=\"v\">~a</div>" msg))
+                         (loop)])))
                   #:on-close (lambda (_sse) (set-box! close-called #t))))
 
   (define-values (port stop) (start-test-server! handler))
@@ -361,16 +360,12 @@
   (define (handler req)
     (datastar-sse req
                   (lambda (sse)
-                    ;; Real async-channel-get, like the CQRS example.
-                    ;; When the client disconnects, patch-elements returns #f
-                    ;; and the loop exits. If the handler is stuck on
-                    ;; async-channel-get, the web server's kill-thread breaks
-                    ;; out of it and dynamic-wind still fires on-close.
+                    ;; When the client disconnects, the monitor thread
+                    ;; breaks this thread, and dynamic-wind fires on-close.
                     (let loop ()
                       (define msg (async-channel-get notify-ch))
-                      (define ok (patch-elements sse (format "<div>~a</div>" msg)))
-                      (when ok
-                        (loop))))
+                      (patch-elements sse (format "<div>~a</div>" msg))
+                      (loop)))
                   #:on-close (lambda (_sse) (set-box! close-called #t))))
 
   (define-values (port stop) (start-test-server! handler))
@@ -383,8 +378,8 @@
   (http-conn-close! conn)
 
   ;; Push messages to force the handler to attempt writes on the dead connection.
-  ;; Eventually patch-elements returns #f, the loop exits, and dynamic-wind
-  ;; triggers on-close.
+  ;; Eventually patch-elements raises, the error is caught by datastar-sse's
+  ;; with-handlers, and dynamic-wind triggers on-close.
   (for ([_ (in-range 5)])
     (async-channel-put notify-ch "ping")
     (sleep 0.3))

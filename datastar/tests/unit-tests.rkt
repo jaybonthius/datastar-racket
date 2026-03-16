@@ -34,25 +34,24 @@
 ;; Send behavior tests
 ;; ============================================================================
 
-(test-case "send returns #t on open connection"
-  ;; Analogous to Go TestSSESendWithActiveConnection
+(test-case "send succeeds on open connection"
   (define-values (gen out) (make-test-sse))
-  (check-true (patch-elements gen "<div id=\"x\">hi</div>")
-              "patch-elements should return #t on a live connection"))
+  (check-not-exn (lambda () (patch-elements gen "<div id=\"x\">hi</div>"))
+                 "patch-elements should not raise on a live connection"))
 
-(test-case "send returns #f after port is closed"
-  ;; Analogous to Go TestSSEContextCancellation (send after cancel)
+(test-case "send raises after port is closed"
   (define-values (gen out) (make-test-sse))
   (close-output-port out)
-  (check-false (patch-elements gen "<div>test</div>")
-               "patch-elements should return #f when output port is closed"))
+  (check-exn exn:fail?
+             (lambda () (patch-elements gen "<div>test</div>"))
+             "patch-elements should raise when output port is closed"))
 
-(test-case "send returns #f after close-sse"
-  ;; Analogous to Go TestSSEContextCancellation
+(test-case "send raises after close-sse"
   (define-values (gen out) (make-test-sse))
   (close-sse gen)
-  (check-false (patch-elements gen "<div>test</div>")
-               "patch-elements should return #f after close-sse"))
+  (check-exn exn:fail?
+             (lambda () (patch-elements gen "<div>test</div>"))
+             "patch-elements should raise after close-sse"))
 
 (test-case "close-sse is idempotent"
   ;; Analogous to Clojure sentinel pattern — calling close twice must not error

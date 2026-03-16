@@ -28,26 +28,26 @@
                  #:use-view-transitions (or/c boolean? #f)
                  #:event-id (or/c string? #f)
                  #:retry-duration (or/c exact-positive-integer? #f)]
-                boolean?)]
+                void?)]
           [remove-elements
            (->* [sse? string?]
                 [#:event-id (or/c string? #f) #:retry-duration (or/c exact-positive-integer? #f)]
-                boolean?)]
+                void?)]
           [patch-signals
            (->* [sse? (or/c string? jsexpr?)]
                 [#:event-id (or/c string? #f)
                  #:only-if-missing (or/c boolean? #f)
                  #:retry-duration (or/c exact-positive-integer? #f)]
-                boolean?)]
+                void?)]
           [execute-script
            (->* [sse? string?]
                 [#:auto-remove boolean?
                  #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
                  #:event-id (or/c string? #f)
                  #:retry-duration (or/c exact-positive-integer? #f)]
-                boolean?)]
-          [redirect (-> sse? string? boolean?)]
-          [console-log (-> sse? string? boolean?)]
+                void?)]
+          [redirect (-> sse? string? void?)]
+          [console-log (-> sse? string? void?)]
           [close-sse (-> sse? void?)]
           [read-signals (-> request? jsexpr?)]
           [sse? (-> any/c boolean?)]
@@ -112,7 +112,8 @@
                                (break-thread on-open-thread)))))
               (dynamic-wind void
                             (lambda ()
-                              (with-handlers ([exn:break? void])
+                              (with-handlers ([exn:break? void]
+                                              [exn:fail? void])
                                 (on-open gen)))
                             (lambda ()
                               (when monitor-thread
@@ -186,10 +187,12 @@
                                     #:retry-duration retry-duration)))
 
 (define (redirect gen location)
-  (execute-script gen (format "setTimeout(() => window.location = '~a')" location)))
+  (execute-script gen (format "setTimeout(() => window.location = '~a')" location))
+  (void))
 
 (define (console-log gen message)
-  (execute-script gen (format "console.log('~a')" message)))
+  (execute-script gen (format "console.log('~a')" message))
+  (void))
 
 ; ==========================================================
 ; INTERNAL
@@ -222,15 +225,12 @@
   (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))
 
 (define (_sse-send gen event-str)
-  (with-handlers ([exn:fail? (lambda (_e) #f)])
-    (call-with-semaphore (sse-semaphore gen)
-                         (lambda ()
-                           (cond
-                             [(_sse-closed? gen) #f]
-                             [else
-                              (write-string event-str (sse-out gen))
-                              ((sse-flush! gen) (sse-out gen) (sse-raw-out gen))
-                              #t])))))
+  (call-with-semaphore (sse-semaphore gen)
+                       (lambda ()
+                         (when (_sse-closed? gen)
+                           (error 'sse-send "connection is closed"))
+                         (write-string event-str (sse-out gen))
+                         ((sse-flush! gen) (sse-out gen) (sse-raw-out gen)))))
 
 (define (_send-event event-type
                      data-lines

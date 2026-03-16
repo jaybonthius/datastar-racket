@@ -58,7 +58,7 @@
 
 (test-case "brotli: single event round-trip"
   (define-values (gen wrapped raw) (make-brotli-test-sse))
-  (check-true (patch-elements gen "<div id=\"out\">hello</div>"))
+  (patch-elements gen "<div id=\"out\">hello</div>")
   (close-output-port wrapped)
   (flush-output raw)
   (define result (decompress-output raw))
@@ -69,9 +69,9 @@
 
 (test-case "brotli: multiple events round-trip"
   (define-values (gen wrapped raw) (make-brotli-test-sse))
-  (check-true (patch-elements gen "<div>first</div>"))
-  (check-true (patch-elements gen "<div>second</div>"))
-  (check-true (patch-signals gen "{\"count\":42}"))
+  (patch-elements gen "<div>first</div>")
+  (patch-elements gen "<div>second</div>")
+  (patch-signals gen "{\"count\":42}")
   (close-output-port wrapped)
   (flush-output raw)
   (define result (decompress-output raw))
@@ -82,7 +82,7 @@
 
 (test-case "brotli: execute-script round-trip"
   (define-values (gen wrapped raw) (make-brotli-test-sse))
-  (check-true (execute-script gen "console.log('compressed')"))
+  (execute-script gen "console.log('compressed')")
   (close-output-port wrapped)
   (flush-output raw)
   (define result (decompress-output raw))
@@ -163,10 +163,12 @@
   (check-true (string-contains? result "before-close")
               "data sent before close should be decompressible"))
 
-(test-case "brotli: send returns #f after close-sse"
+(test-case "brotli: send raises after close-sse"
   (define-values (gen wrapped raw) (make-brotli-test-sse))
   (close-sse gen)
-  (check-false (patch-elements gen "<div>after-close</div>") "should return #f after close-sse"))
+  (check-exn exn:fail?
+             (lambda () (patch-elements gen "<div>after-close</div>"))
+             "should raise after close-sse"))
 
 ;; ============================================================================
 ;; Module test hook
