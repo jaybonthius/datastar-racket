@@ -120,6 +120,29 @@
   (check-true (string-contains? result "<div>hello</div>") "should contain first event data")
   (check-true (string-contains? result "{\"count\":1}") "should contain second event data"))
 
+(test-case "brotli: sliding window reduces incremental cost of repeated SSE events"
+  (define-values (gen wrapped raw) (make-brotli-test-sse #:quality 5 #:window 22))
+
+  (define sizes
+    (for/list ([n (in-range 5)])
+      (define before (bytes-length (get-output-bytes raw)))
+      (patch-elements gen (format "<div id=\"out\">event ~a</div>" n))
+      (define after (bytes-length (get-output-bytes raw)))
+      (- after before)))
+
+  (close-output-port wrapped)
+  (flush-output raw)
+  (define result (decompress-output raw))
+  (for ([n (in-range 5)])
+    (check-true (string-contains? result (format "event ~a" n))))
+
+  (define first-size (first sizes))
+  (define avg-later (/ (apply + (rest sizes)) (length (rest sizes))))
+  (check-true (< avg-later first-size)
+              (format "avg later event size ~a should be < first event size ~a"
+                      (exact->inexact avg-later)
+                      first-size)))
+
 (test-case "brotli: different quality levels all produce valid output"
   (for ([q (in-range 0 12)])
     (define-values (gen wrapped raw) (make-brotli-test-sse #:quality q))
