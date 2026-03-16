@@ -7,6 +7,10 @@
          web-server/http
          "constants.rkt")
 
+(define element-patch-mode/c
+  (or/c "outer" "inner" "remove" "replace" "prepend" "append" "before" "after" #f))
+(define element-namespace/c (or/c "html" "svg" "mathml" #f))
+
 (provide (contract-out [datastar-sse
                         (->* [request? (-> sse? any)]
                              [#:on-close (or/c (-> sse? any) #f) #:write-profile write-profile?]
@@ -14,8 +18,8 @@
                        [patch-elements
                         (->* [sse? (or/c string? #f)]
                              [#:selector (or/c string? #f)
-                              #:mode (or/c string? #f)
-                              #:namespace (or/c string? #f)
+                              #:mode element-patch-mode/c
+                              #:namespace element-namespace/c
                               #:use-view-transitions (or/c boolean? #f)
                               #:event-id (or/c string? #f)
                               #:retry-duration (or/c exact-positive-integer? #f)]
@@ -131,7 +135,7 @@
   (patch-elements gen
                   #f
                   #:selector selector
-                  #:mode ELEMENT-PATCH-MODE-REMOVE
+                  #:mode "remove"
                   #:event-id event-id
                   #:retry-duration retry-duration))
 
@@ -232,7 +236,7 @@
   (define data-lines
     (append (filter values
                     (list (and mode
-                               (not (string=? mode ELEMENT-PATCH-MODE-OUTER))
+                               (not (string=? mode DEFAULT-ELEMENT-PATCH-MODE))
                                (string-append MODE-DATALINE-LITERAL " " mode))
                           (and selector (string-append SELECTOR-DATALINE-LITERAL " " selector))
                           (and namespace (string-append NAMESPACE-DATALINE-LITERAL " " namespace))
@@ -300,7 +304,7 @@
             script))
 
   (_build-patch-elements script-tag
-                         #:mode ELEMENT-PATCH-MODE-APPEND
+                         #:mode "append"
                          #:selector "body"
                          #:event-id event-id
                          #:retry-duration retry-duration))

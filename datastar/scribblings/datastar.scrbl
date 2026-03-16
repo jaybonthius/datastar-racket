@@ -142,14 +142,21 @@ delivery order is serialized.
 @defproc[(patch-elements [sse sse?]
                           [elements (or/c string? #f)]
                           [#:selector selector (or/c string? #f) #f]
-                          [#:mode mode (or/c string? #f) #f]
-                          [#:namespace namespace (or/c string? #f) #f]
+                          [#:mode mode (or/c "outer" "inner" "remove" "replace" "prepend" "append" "before" "after" #f) #f]
+                          [#:namespace namespace (or/c "html" "svg" "mathml" #f) #f]
                           [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
                           [#:event-id event-id (or/c string? #f) #f]
                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) boolean?]{
-Patches HTML elements into the DOM. Supports various patch modes including outer, inner,
-replace, prepend, append, before, after, and remove. The @racket[namespace] parameter can
-be used to specify SVG or MathML namespaces when patching elements.
+Patches HTML elements into the DOM.
+
+The @racket[#:mode] parameter controls how elements are patched. Valid modes are
+@racket["outer"] (morph entire element, default), @racket["inner"] (morph inner HTML),
+@racket["replace"] (replace entire element), @racket["prepend"], @racket["append"],
+@racket["before"], @racket["after"], and @racket["remove"]. When @racket[#f] or
+@racket["outer"], the mode data line is omitted.
+
+The @racket[#:namespace] parameter specifies the namespace for creating new elements:
+@racket["html"] (default), @racket["svg"], or @racket["mathml"].
 }
 
 @defproc[(remove-elements [sse sse?]
@@ -219,40 +226,15 @@ Brotli write profile.
 
 @section{Constants}
 
-@subsection{Element Patch Modes}
+@subsection{Defaults}
 
-An element patch mode is the mode in which an element is patched into the DOM.
-
-@defthing[ELEMENT-PATCH-MODE-OUTER string? #:value "outer"]{
-Morphs the element into the existing element.
+@defthing[DEFAULT-ELEMENT-PATCH-MODE string? #:value "outer"]{
+The default element patch mode. When a @racket[#:mode] of @racket["outer"] or @racket[#f] is
+passed to @racket[patch-elements], the mode data line is omitted from the SSE event.
 }
 
-@defthing[ELEMENT-PATCH-MODE-INNER string? #:value "inner"]{
-Replaces the inner HTML of the existing element.
-}
-
-@defthing[ELEMENT-PATCH-MODE-REMOVE string? #:value "remove"]{
-Removes the existing element.
-}
-
-@defthing[ELEMENT-PATCH-MODE-REPLACE string? #:value "replace"]{
-Replaces the existing element with the new element.
-}
-
-@defthing[ELEMENT-PATCH-MODE-PREPEND string? #:value "prepend"]{
-Prepends the element inside to the existing element.
-}
-
-@defthing[ELEMENT-PATCH-MODE-APPEND string? #:value "append"]{
-Appends the element inside the existing element.
-}
-
-@defthing[ELEMENT-PATCH-MODE-BEFORE string? #:value "before"]{
-Inserts the element before the existing element.
-}
-
-@defthing[ELEMENT-PATCH-MODE-AFTER string? #:value "after"]{
-Inserts the element after the existing element.
+@defthing[DEFAULT-ELEMENT-NAMESPACE string? #:value "html"]{
+The default element namespace.
 }
 
 @subsection{Event Types}

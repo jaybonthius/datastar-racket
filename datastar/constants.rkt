@@ -15,15 +15,8 @@
         "X-Accel-Buffering"
         "no"))
 
-; The mode in which an element is patched into the DOM.
-(define ELEMENT-PATCH-MODE-OUTER "outer")
-(define ELEMENT-PATCH-MODE-INNER "inner")
-(define ELEMENT-PATCH-MODE-REMOVE "remove")
-(define ELEMENT-PATCH-MODE-REPLACE "replace")
-(define ELEMENT-PATCH-MODE-PREPEND "prepend")
-(define ELEMENT-PATCH-MODE-APPEND "append")
-(define ELEMENT-PATCH-MODE-BEFORE "before")
-(define ELEMENT-PATCH-MODE-AFTER "after")
+(define DEFAULT-ELEMENT-PATCH-MODE "outer")
+(define DEFAULT-ELEMENT-NAMESPACE "html")
 
 ; The type protocol on top of SSE which allows for core pushed based communication between the server and the client.
 (define EVENT-TYPE-PATCH-ELEMENTS "datastar-patch-elements")
