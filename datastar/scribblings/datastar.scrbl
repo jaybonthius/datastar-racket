@@ -249,6 +249,45 @@ Parses incoming signal data from the browser. For GET requests, extracts data fr
 a standalone function that operates on the request and does not require an SSE generator.
 }
 
+@section{Action Helpers}
+
+Convenience functions for generating Datastar
+@link["https://data-star.dev/reference/action_plugins"]{backend action} attribute strings.
+
+@codeblock{
+`(main ((id "main") (data-init ,(sse-get "/events")))
+       (form ((data-on:submit ,(sse-post "/todo/create")))
+             (button ((data-on:click ,(sse-post (format "/todo/delete/~a" tid))))
+                     "Delete")))
+}
+
+@defproc[(sse-get [url string?] [args string? #f]) string?]{
+Returns a @tt{@@get} action string. When @racket[args] is provided, it is included as a
+second argument.
+
+@codeblock{
+(sse-get "/events")           ; => "@@get('/events')"
+(sse-get "/events" "{includeLocal: true}")
+                              ; => "@@get('/events', {includeLocal: true})"
+}
+}
+
+@defproc[(sse-post [url string?] [args string? #f]) string?]{
+Returns a @tt{@@post} action string.
+}
+
+@defproc[(sse-put [url string?] [args string? #f]) string?]{
+Returns a @tt{@@put} action string.
+}
+
+@defproc[(sse-patch [url string?] [args string? #f]) string?]{
+Returns a @tt{@@patch} action string.
+}
+
+@defproc[(sse-delete [url string?] [args string? #f]) string?]{
+Returns a @tt{@@delete} action string.
+}
+
 @section[#:tag "write-profiles"]{Write Profiles}
 
 A write profile controls how SSE bytes are written to the underlying connection. This

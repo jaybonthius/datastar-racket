@@ -85,7 +85,7 @@
                       #:write-profile [wp basic-write-profile])
   (define wp*
     (let ([enc (write-profile-content-encoding wp)])
-      (if (and enc (not (_accepts-encoding? request enc))) basic-write-profile wp)))
+      (if (and enc (not (accepts-encoding? request enc))) basic-write-profile wp)))
   (define encoding (write-profile-content-encoding wp*))
   (define extra-headers
     (for/list ([(k v) (in-hash SSE-HEADERS)])
@@ -145,14 +145,14 @@
                         #:use-view-transitions [use-view-transitions #f]
                         #:event-id [event-id #f]
                         #:retry-duration [retry-duration #f])
-  (_sse-send gen
-             (_build-patch-elements elements
-                                    #:selector selector
-                                    #:mode mode
-                                    #:namespace namespace
-                                    #:use-view-transitions use-view-transitions
-                                    #:event-id event-id
-                                    #:retry-duration retry-duration)))
+  (sse-send gen
+            (build-patch-elements elements
+                                  #:selector selector
+                                  #:mode mode
+                                  #:namespace namespace
+                                  #:use-view-transitions use-view-transitions
+                                  #:event-id event-id
+                                  #:retry-duration retry-duration)))
 
 (define (remove-elements gen selector #:event-id [event-id #f] #:retry-duration [retry-duration #f])
   (patch-elements gen
@@ -167,11 +167,11 @@
                        #:event-id [event-id #f]
                        #:only-if-missing [only-if-missing #f]
                        #:retry-duration [retry-duration #f])
-  (_sse-send gen
-             (_build-patch-signals signals
-                                   #:event-id event-id
-                                   #:only-if-missing only-if-missing
-                                   #:retry-duration retry-duration)))
+  (sse-send gen
+            (build-patch-signals signals
+                                 #:event-id event-id
+                                 #:only-if-missing only-if-missing
+                                 #:retry-duration retry-duration)))
 
 (define (execute-script gen
                         script
@@ -179,12 +179,12 @@
                         #:attributes [attributes #f]
                         #:event-id [event-id #f]
                         #:retry-duration [retry-duration #f])
-  (_sse-send gen
-             (_build-execute-script script
-                                    #:auto-remove auto-remove
-                                    #:attributes attributes
-                                    #:event-id event-id
-                                    #:retry-duration retry-duration)))
+  (sse-send gen
+            (build-execute-script script
+                                  #:auto-remove auto-remove
+                                  #:attributes attributes
+                                  #:event-id event-id
+                                  #:retry-duration retry-duration)))
 
 (define (redirect gen location)
   (execute-script gen (format "setTimeout(() => window.location = '~a')" location))
@@ -198,7 +198,7 @@
 ; INTERNAL
 ; ==========================================================
 
-(define (_accepts-encoding? request encoding)
+(define (accepts-encoding? request encoding)
   (define accept-header
     (for/or ([h (in-list (request-headers/raw request))])
       (and (equal? (string-downcase (bytes->string/utf-8 (header-field h))) "accept-encoding")
@@ -207,10 +207,10 @@
        (for/or ([part (in-list (regexp-split #rx"," (bytes->string/utf-8 accept-header)))])
          (string-ci=? (string-trim (car (string-split part ";"))) encoding))))
 
-(define (_js-bool b)
+(define (js-bool b)
   (if b "true" "false"))
 
-(define (_escape str)
+(define (escape str)
   (regexp-replace* #px"[&'\"<>]"
                    str
                    (lambda (m)
@@ -221,21 +221,21 @@
                        [(">") "&gt;"]
                        [("<") "&lt;"]))))
 
-(define (_sse-closed? gen)
+(define (sse-closed? gen)
   (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))
 
-(define (_sse-send gen event-str)
+(define (sse-send gen event-str)
   (call-with-semaphore (sse-semaphore gen)
                        (lambda ()
-                         (when (_sse-closed? gen)
+                         (when (sse-closed? gen)
                            (error 'sse-send "connection is closed"))
                          (write-string event-str (sse-out gen))
                          ((sse-flush! gen) (sse-out gen) (sse-raw-out gen)))))
 
-(define (_send-event event-type
-                     data-lines
-                     #:event-id [event-id #f]
-                     #:retry-duration [retry-duration #f])
+(define (send-event event-type
+                    data-lines
+                    #:event-id [event-id #f]
+                    #:retry-duration [retry-duration #f])
   (define prefix-lines
     (filter values
             (list (string-append "event: " event-type)
@@ -248,13 +248,13 @@
 
   (string-join (append prefix-lines formatted-data-lines) "\n" #:after-last "\n\n"))
 
-(define (_build-patch-elements elements
-                               #:selector [selector #f]
-                               #:mode [mode #f]
-                               #:namespace [namespace #f]
-                               #:use-view-transitions [use-view-transitions #f]
-                               #:event-id [event-id #f]
-                               #:retry-duration [retry-duration #f])
+(define (build-patch-elements elements
+                              #:selector [selector #f]
+                              #:mode [mode #f]
+                              #:namespace [namespace #f]
+                              #:use-view-transitions [use-view-transitions #f]
+                              #:event-id [event-id #f]
+                              #:retry-duration [retry-duration #f])
   (define data-lines
     (append (filter values
                     (list (and mode
@@ -268,21 +268,21 @@
                                (not (eq? use-view-transitions DEFAULT-ELEMENTS-USE-VIEW-TRANSITIONS))
                                (string-append USE-VIEW-TRANSITION-DATALINE-LITERAL
                                               " "
-                                              (_js-bool use-view-transitions)))))
+                                              (js-bool use-view-transitions)))))
             (if elements
                 (map (lambda (line) (string-append ELEMENTS-DATALINE-LITERAL " " line))
                      (string-split elements "\n"))
                 '())))
 
-  (_send-event EVENT-TYPE-PATCH-ELEMENTS
-               data-lines
-               #:event-id event-id
-               #:retry-duration retry-duration))
+  (send-event EVENT-TYPE-PATCH-ELEMENTS
+              data-lines
+              #:event-id event-id
+              #:retry-duration retry-duration))
 
-(define (_build-patch-signals signals
-                              #:event-id [event-id #f]
-                              #:only-if-missing [only-if-missing #f]
-                              #:retry-duration [retry-duration #f])
+(define (build-patch-signals signals
+                             #:event-id [event-id #f]
+                             #:only-if-missing [only-if-missing #f]
+                             #:retry-duration [retry-duration #f])
   (define signals-str
     (if (string? signals)
         signals
@@ -294,27 +294,27 @@
                                (not (eq? only-if-missing DEFAULT-PATCH-SIGNALS-ONLY-IF-MISSING))
                                (string-append ONLY-IF-MISSING-DATALINE-LITERAL
                                               " "
-                                              (_js-bool only-if-missing)))))
+                                              (js-bool only-if-missing)))))
             (map (lambda (line) (string-append SIGNALS-DATALINE-LITERAL " " line))
                  (string-split signals-str "\n"))))
 
-  (_send-event EVENT-TYPE-PATCH-SIGNALS
-               data-lines
-               #:event-id event-id
-               #:retry-duration retry-duration))
+  (send-event EVENT-TYPE-PATCH-SIGNALS
+              data-lines
+              #:event-id event-id
+              #:retry-duration retry-duration))
 
-(define (_build-execute-script script
-                               #:auto-remove [auto-remove #t]
-                               #:attributes [attributes #f]
-                               #:event-id [event-id #f]
-                               #:retry-duration [retry-duration #f])
+(define (build-execute-script script
+                              #:auto-remove [auto-remove #t]
+                              #:attributes [attributes #f]
+                              #:event-id [event-id #f]
+                              #:retry-duration [retry-duration #f])
   (define attribute-string
     (string-join (filter values
                          (list (and auto-remove "data-effect=\"el.remove()\"")
                                (match attributes
                                  [(? hash?)
                                   (string-join (for/list ([(k v) (in-hash attributes)])
-                                                 (format "~a=\"~a\"" k (_escape (format "~a" v))))
+                                                 (format "~a=\"~a\"" k (escape (format "~a" v))))
                                                " ")]
                                  [(? list?) (string-join attributes " ")]
                                  [#f #f])))
@@ -327,11 +327,11 @@
                 (string-append " " attribute-string))
             script))
 
-  (_build-patch-elements script-tag
-                         #:mode "append"
-                         #:selector "body"
-                         #:event-id event-id
-                         #:retry-duration retry-duration))
+  (build-patch-elements script-tag
+                        #:mode "append"
+                        #:selector "body"
+                        #:event-id event-id
+                        #:retry-duration retry-duration))
 
 (module+ internal
   (provide make-sse

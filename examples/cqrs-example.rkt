@@ -42,9 +42,9 @@
 
 (define (render-main)
   (define items (unbox todos))
-  `(main ((id "main") (data-init "@get('/events')"))
+  `(main ((id "main") (data-init ,(sse-get "/events")))
          (h1 "CQRS Todo Example")
-         (form ((data-on:submit "@post('/todo/create')"))
+         (form ((data-on:submit ,(sse-post "/todo/create")))
                (input ((id "todo-input") (name "todo-input")
                                          (placeholder "What needs to be done?")
                                          (data-bind:input "")))
@@ -53,7 +53,7 @@
                  (define tid (number->string (hash-ref todo 'id)))
                  `(li ,(hash-ref todo 'text)
                       " "
-                      (button ((data-on:click ,(format "@post('/todo/delete/~a')" tid)))
+                      (button ((data-on:click ,(sse-post (format "/todo/delete/~a" tid))))
                               "Delete"))))))
 
 ;; ---------------------------------------------------------------------------
