@@ -28,6 +28,7 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 
 (require datastar
          web-server/http
+         web-server/safety-limits
          web-server/web-server
          json)
 
@@ -64,7 +65,10 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
    #:dispatch (dispatch/datastar handler)
    #:listen-ip "127.0.0.1"
    #:port 8000
-   #:connection-close? #t))
+   #:connection-close? #t
+   #:safety-limits (make-safety-limits
+                    #:response-timeout +inf.0
+                    #:response-send-timeout +inf.0)))
 
 (with-handlers ([exn:break? (lambda (e) (stop))])
   (sync/enable-break never-evt))
@@ -145,10 +149,19 @@ The @racket[write-profile] controls how SSE bytes are written to the connection.
 content encoding in @tt{Accept-Encoding}, the SDK automatically falls back to
 @racket[basic-write-profile].
 
-@bold{Important:} When using @racket[serve], the @racket[#:connection-close?] setting must be
-@racket[#t] for SSE to work correctly. Without this, the web server uses chunked transfer
-encoding with an internal pipe that silently absorbs writes to dead connections, preventing
-disconnect detection from working and @racket[on-close] from firing.
+@bold{Important:} When using @racket[serve], two settings are required for SSE to work correctly:
+
+@itemlist[
+  @item{@racket[#:connection-close?] must be @racket[#t]. Without this, the web server uses
+  chunked transfer encoding with an internal pipe that silently absorbs writes to dead
+  connections, preventing disconnect detection from working and @racket[on-close] from firing.}
+
+  @item{@racket[#:safety-limits] must disable both @racket[#:response-timeout] and
+  @racket[#:response-send-timeout] (set to @racket[+inf.0]). The defaults of 60 seconds
+  will kill idle SSE connections. @racket[#:response-timeout] limits the total time a handler
+  can run, and @racket[#:response-send-timeout] limits the time between successive writes.
+  Both must be infinite for long-lived SSE connections.}
+]
 }
 
 @defproc[(sse? [v any/c]) boolean?]{

@@ -10,6 +10,7 @@
          racket/random
          web-server/dispatch
          web-server/http
+         web-server/safety-limits
          web-server/web-server
          xml)
 
@@ -168,7 +169,9 @@
   (serve #:dispatch (dispatch/datastar ((wrap-session session-manager) app))
          #:listen-ip "127.0.0.1"
          #:port 8080
-         #:connection-close? #t))
+         #:connection-close? #t
+         #:safety-limits (make-safety-limits #:response-timeout +inf.0
+                                             #:response-send-timeout +inf.0)))
 
 (with-handlers ([exn:break? (lambda (_e) (stop))])
   (sync/enable-break never-evt))

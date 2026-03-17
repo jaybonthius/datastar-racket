@@ -56,7 +56,8 @@
                              #:port port
                              #:servlet-regexp #rx""
                              #:connection-close? #t
-                             #:safety-limits (make-safety-limits #:response-send-timeout +inf.0)))))
+                             #:safety-limits (make-safety-limits #:response-timeout +inf.0
+                                                                 #:response-send-timeout +inf.0)))))
   (wait-for-server! port)
   (values port (lambda () (kill-thread server-thread))))
 
