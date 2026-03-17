@@ -72,18 +72,18 @@
 
 (define (render-main sid)
   (define items (get-todos sid))
-  `(main ((id "main") (data-init ,(sse-get "/events")))
+  `(main ((id "main") ,(ds:init (sse-get "/events")))
          (h1 "CQRS Todo Example")
-         (form ((data-on:submit ,(sse-post "/todo/create")))
+         (form (,(ds:on "submit" (sse-post "/todo/create")))
                (input ((id "todo-input") (name "todo-input")
                                          (placeholder "What needs to be done?")
-                                         (data-bind:input "")))
+                                         ,(ds:bind "input")))
                (button ((type "submit")) "Add"))
          (ul ,@(for/list ([todo (in-list items)])
                  (define tid (number->string (hash-ref todo 'id)))
                  `(li ,(hash-ref todo 'text)
                       " "
-                      (button ((data-on:click ,(sse-post (format "/todo/delete/~a" tid))))
+                      (button (,(ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
                               "Delete"))))))
 
 ;; ---------------------------------------------------------------------------

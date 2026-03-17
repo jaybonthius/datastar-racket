@@ -6,14 +6,10 @@
 ;; analogous to Clojure's persistent_connection.clj and Go's httptest pattern.
 
 (require datastar
-         json
          net/http-client
-         net/url
          racket/async-channel
          racket/tcp
          rackunit
-         web-server/dispatch
-         web-server/http
          web-server/safety-limits
          web-server/servlet-env)
 
@@ -154,7 +150,7 @@
   (define (handler req)
     (datastar-sse req (lambda (sse) (patch-elements sse "<div>test</div>"))))
   (define-values (port stop) (start-test-server! handler))
-  (define-values (conn status headers in) (open-sse-connection port "/"))
+  (define-values (conn _status headers in) (open-sse-connection port "/"))
   ;; Check Content-Type
   (define (find-header name)
     (for/or ([h (in-list headers)])
@@ -231,7 +227,7 @@
   ;; Read the event and wait for connection to close
   (read-sse-event in)
   ;; Wait for eof (handler returned, so connection should close)
-  (define result (read-sse-event in #:timeout 3))
+  (read-sse-event in #:timeout 3)
   ;; Give on-close a moment to execute
   (sleep 0.5)
   (check-true (unbox close-called) "on-close should have been called")
@@ -248,7 +244,7 @@
   (define close-called (box #f))
   (define (handler req)
     (datastar-sse req
-                  (lambda (sse) (error "intentional test error"))
+                  (lambda (_sse) (error "intentional test error"))
                   #:on-close (lambda (_sse) (set-box! close-called #t))))
   (define-values (port stop) (start-test-server! handler))
   (define conn (http-conn-open "127.0.0.1" #:port port))
@@ -388,11 +384,3 @@
   (sleep 1)
   (check-true (unbox close-called) "on-close should fire after client disconnects and a write fails")
   (stop))
-
-(module+ test
-  (displayln "Integration tests complete."))
-
-(module+ main
-  (require rackunit/text-ui)
-  (displayln "Running integration tests...")
-  (void))

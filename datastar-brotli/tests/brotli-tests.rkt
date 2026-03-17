@@ -22,7 +22,6 @@
                               #:window [window 22]
                               #:mode [mode BROTLI_MODE_TEXT])
   (define raw-out (open-output-bytes))
-  (define bp (make-brotli-write-profile #:quality quality #:window window #:mode mode))
   (define wrapped-out
     (open-brotli-output raw-out #:quality quality #:window window #:mode mode #:close? #f))
   (define gen
@@ -154,7 +153,7 @@
                 (format "quality ~a should produce valid compressed output" q))))
 
 (test-case "brotli: close-sse finalizes compression stream"
-  (define-values (gen wrapped raw) (make-brotli-test-sse))
+  (define-values (gen _wrapped raw) (make-brotli-test-sse))
   (patch-elements gen "<div>before-close</div>")
   (close-sse gen)
   ;; After close-sse, the wrapped port should be closed (finalizing brotli)
@@ -164,19 +163,8 @@
               "data sent before close should be decompressible"))
 
 (test-case "brotli: send raises after close-sse"
-  (define-values (gen wrapped raw) (make-brotli-test-sse))
+  (define-values (gen _wrapped _raw) (make-brotli-test-sse))
   (close-sse gen)
   (check-exn exn:fail?
              (lambda () (patch-elements gen "<div>after-close</div>"))
              "should raise after close-sse"))
-
-;; ============================================================================
-;; Module test hook
-;; ============================================================================
-
-(module+ test
-  (displayln "Brotli unit tests complete."))
-
-(module+ main
-  (displayln "Running brotli unit tests...")
-  (void))

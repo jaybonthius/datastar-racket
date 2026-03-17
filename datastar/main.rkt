@@ -1,7 +1,17 @@
 #lang racket/base
 
-(require "sse.rkt"
+(require "attributes.rkt"
          "constants.rkt"
+         "elements.rkt"
+         "scripts.rkt"
+         "signals.rkt"
+         "sse.rkt"
          "sugar.rkt")
 
-(provide (all-from-out "sse.rkt" "constants.rkt" "sugar.rkt"))
+(provide (all-from-out "attributes.rkt"
+                       "constants.rkt"
+                       "elements.rkt"
+                       "scripts.rkt"
+                       "signals.rkt"
+                       "sse.rkt"
+                       "sugar.rkt"))

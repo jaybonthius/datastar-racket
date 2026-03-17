@@ -26,12 +26,10 @@ jobs:
           go-version: 'stable'
       - name: Install Package and Dependencies
         run: raco pkg install --auto --batch datastar/
-      - name: Run Unit Tests
-        run: raco test datastar/tests/unit-tests.rkt
-      - name: Run Integration Tests
-        run: raco test datastar/tests/integration-tests.rkt
-      - name: Run SDK Tests
-        run: raco test datastar/tests/sdk-tests/
+      - name: Run Tests
+        run: raco test datastar/
+      - name: Run SDK Conformance Tests
+        run: raco test sdk-tests/sdk-test-runner.rkt
 
   brotli-tests:
     runs-on: ubuntu-latest

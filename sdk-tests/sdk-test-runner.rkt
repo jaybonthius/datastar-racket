@@ -27,7 +27,7 @@
 (define (run-server-and-tests)
   (printf "Starting Datastar SDK tests...~n")
 
-  (with-handlers ([exn:fail:network? (λ (e) (error "Port ~a is already in use" SERVER_PORT))])
+  (with-handlers ([exn:fail:network? (λ (_) (error "Port ~a is already in use" SERVER_PORT))])
     (define listener (tcp-listen SERVER_PORT))
     (tcp-close listener))
 

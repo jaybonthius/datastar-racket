@@ -255,9 +255,9 @@ Convenience functions for generating Datastar
 @link["https://data-star.dev/reference/action_plugins"]{backend action} attribute strings.
 
 @codeblock{
-`(main ((id "main") (data-init ,(sse-get "/events")))
-       (form ((data-on:submit ,(sse-post "/todo/create")))
-             (button ((data-on:click ,(sse-post (format "/todo/delete/~a" tid))))
+`(main ((id "main") ,(ds:init (sse-get "/events")))
+       (form (,(ds:on "submit" (sse-post "/todo/create")))
+             (button (,(ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
                      "Delete")))
 }
 
@@ -286,6 +286,404 @@ Returns a @tt{@"@"patch} action string.
 
 @defproc[(sse-delete [url string?] [args string? #f]) string?]{
 Returns a @tt{@"@"delete} action string.
+}
+
+@section{Attribute Helpers}
+
+Functions for generating Datastar @tt{data-*}
+@link["https://data-star.dev/reference/attributes"]{HTML attributes} as x-expression
+attribute pairs. Each function returns @racket[(list 'attr-name "value")] — a symbol
+and a string, the native format for x-expression attributes — which drops
+directly into x-expression templates via unquote:
+
+@codeblock{
+;; Without attribute helpers:
+`(input ((data-bind:filter "")
+         (data-on:input "@"@"post('/search')")))
+
+;; With attribute helpers:
+`(input (,(ds:bind "filter")
+         ,(ds:on "input" (sse-post "/search") #:debounce "250ms")))
+}
+
+Modifiers (debounce, throttle, once, etc.) are expressed as keyword arguments rather
+than method chaining. Boolean modifiers take @racket[#t]; parameterized modifiers take
+their value directly.
+
+The @tt{ds:} prefix follows the @tt{sxml:} convention for domain-specific identifiers.
+If you want a different prefix, use @racket[prefix-in]:
+@racket[(require (prefix-in my: datastar/attributes))].
+
+@subsection{Simple Value Attributes}
+
+@defproc[(ds:show [expression string?]) (list/c symbol? string?)]{
+Show or hide an element based on whether @racket[expression] evaluates to true or false.
+
+@codeblock{
+(ds:show "$count > 0")  ; => '(data-show "$count > 0")
+}
+}
+
+@defproc[(ds:text [expression string?]) (list/c symbol? string?)]{
+Bind the text content of an element to @racket[expression].
+
+@codeblock{
+(ds:text "$foo")  ; => '(data-text "$foo")
+}
+}
+
+@defproc[(ds:effect [expression string?]) (list/c symbol? string?)]{
+Execute @racket[expression] whenever any referenced signals change.
+
+@codeblock{
+(ds:effect "$foo = $bar + $baz")  ; => '(data-effect "$foo = $bar + $baz")
+}
+}
+
+@defproc[(ds:bind [signal string?] [value string? ""]) (list/c symbol? string?)]{
+Two-way data binding between a signal and an element's value.
+
+@codeblock{
+(ds:bind "username")      ; => '(data-bind:username "")
+(ds:bind "foo" "fooBar")  ; => '(data-bind:foo "fooBar")
+}
+}
+
+@defproc[(ds:ref [signal string?]) (list/c symbol? string?)]{
+Create a signal referencing the element.
+
+@codeblock{
+(ds:ref "myDiv")  ; => '(data-ref:myDiv "")
+}
+}
+
+@defproc[(ds:indicator [signal string?]) (list/c symbol? string?)]{
+Create a signal that is @tt{true} while a fetch request is in flight.
+
+@codeblock{
+(ds:indicator "fetching")  ; => '(data-indicator:fetching "")
+}
+}
+
+@defproc[(ds:ignore-morph) (list/c symbol? string?)]{
+Skip this element and its children when morphing.
+
+@codeblock{
+(ds:ignore-morph)  ; => '(data-ignore-morph "")
+}
+}
+
+@defproc[(ds:view-transition [expression string?]) (list/c symbol? string?)]{
+(PRO) Set the @tt{view-transition-name} style attribute.
+
+@codeblock{
+(ds:view-transition "$foo")  ; => '(data-view-transition "$foo")
+}
+}
+
+@defproc[(ds:custom-validity [expression string?]) (list/c symbol? string?)]{
+(PRO) Set a custom validity message based on @racket[expression].
+
+@codeblock{
+(ds:custom-validity "$foo === $bar ? '' : 'Must match'")
+}
+}
+
+@defproc[(ds:replace-url [expression string?]) (list/c symbol? string?)]{
+(PRO) Replace the browser URL without reloading the page.
+
+@codeblock{
+(ds:replace-url "`/page$|{page}`")  ; => '(data-replace-url ...)
+}
+}
+
+@defproc[(ds:match-media [signal string?] [query string?]) (list/c symbol? string?)]{
+(PRO) Set a signal to whether a media query matches.
+
+@codeblock{
+(ds:match-media "is-dark" "'prefers-color-scheme: dark'")
+; => '(data-match-media:is-dark "'prefers-color-scheme: dark'")
+}
+}
+
+@subsection{Signal & Hash Attributes}
+
+These functions accept either a key/value pair (keyed form) or a hash (multi-value form).
+
+@defproc[(ds:signals [key-or-hash (or/c symbol? string? hash?)]
+                     [value string? #f]
+                     [#:ifmissing ifmissing boolean? #f]) (list/c symbol? string?)]{
+Patch one or more signals. In keyed form, sets a single signal by name.
+In hash form, serializes to JSON. The @racket[#:ifmissing] modifier only sets
+signals that don't already exist.
+
+@codeblock{
+(ds:signals 'foo "1")                        ; => '(data-signals:foo "1")
+(ds:signals (hash 'count 0 'name "Alice"))   ; => '(data-signals "{...}")
+(ds:signals (hash 'count 0) #:ifmissing #t)  ; => '(data-signals__ifmissing "{...}")
+}
+}
+
+@defproc[(ds:computed [key-or-hash (or/c symbol? string? hash?)]
+                      [value string? #f]) (or/c (list/c symbol? string?)
+                                                (listof (list/c symbol? string?)))]{
+Create computed signals. In keyed form, returns a single attribute pair.
+In hash form, returns a list of pairs (one per signal).
+
+@codeblock{
+(ds:computed 'doubled "$count * 2")  ; => '(data-computed:doubled "$count * 2")
+(ds:computed (hash 'a "$x" 'b "$y")) ; => '((data-computed:a "$x")
+                                     ;       (data-computed:b "$y"))
+}
+}
+
+@defproc[(ds:attr [key-or-hash (or/c symbol? string? hash?)]
+                  [value string? #f]) (list/c symbol? string?)]{
+Set HTML attributes to expressions and keep them in sync. In hash form,
+values are treated as expressions (not JSON-quoted).
+
+@codeblock{
+(ds:attr "aria-label" "$foo")                     ; => '(data-attr:aria-label "$foo")
+(ds:attr (hash "aria-label" "$foo" "disabled" "$bar"))
+; => '(data-attr "{\"aria-label\": $foo, \"disabled\": $bar}")
+}
+}
+
+@defproc[(ds:class [key-or-hash (or/c symbol? string? hash?)]
+                   [value string? #f]) (list/c symbol? string?)]{
+Add or remove classes based on expressions.
+
+@codeblock{
+(ds:class "font-bold" "$foo == 'strong'")
+; => '(data-class:font-bold "$foo == 'strong'")
+}
+}
+
+@defproc[(ds:style [key-or-hash (or/c symbol? string? hash?)]
+                   [value string? #f]) (list/c symbol? string?)]{
+Set inline CSS styles based on expressions.
+
+@codeblock{
+(ds:style "display" "$hiding && 'none'")
+; => '(data-style:display "$hiding && 'none'")
+}
+}
+
+@subsection{Event Handlers}
+
+Event attributes support modifiers via keyword arguments. Timing modifiers
+(@racket[#:debounce], @racket[#:throttle]) accept a duration string like @racket["300ms"]
+or @racket["1s"], or an integer (milliseconds). Sub-modifiers like @racket[#:debounce-leading]
+are only meaningful when their parent modifier is also provided.
+
+@defproc[(ds:on [event string?]
+                [expression string?]
+                [#:once once boolean? #f]
+                [#:passive passive boolean? #f]
+                [#:capture capture boolean? #f]
+                [#:window window boolean? #f]
+                [#:outside outside boolean? #f]
+                [#:prevent prevent boolean? #f]
+                [#:stop stop boolean? #f]
+                [#:trust trust boolean? #f]
+                [#:debounce debounce (or/c string? number? #f) #f]
+                [#:debounce-leading debounce-leading boolean? #f]
+                [#:debounce-notrailing debounce-notrailing boolean? #f]
+                [#:throttle throttle (or/c string? number? #f) #f]
+                [#:throttle-noleading throttle-noleading boolean? #f]
+                [#:throttle-trailing throttle-trailing boolean? #f]
+                [#:delay delay (or/c string? number? #f) #f]
+                [#:viewtransition viewtransition boolean? #f]) (list/c symbol? string?)]{
+Attach an event listener. Composes naturally with the action helpers:
+
+@codeblock{
+(ds:on "click" "$count++")
+; => '(data-on:click "$count++")
+
+(ds:on "input" (sse-post "/search") #:debounce "300ms" #:prevent #t)
+; => '(data-on:input__debounce.300ms__prevent "@"@"post('/search')")
+
+(ds:on "click" "fn()" #:window #t #:debounce "500ms" #:debounce-leading #t)
+; => '(data-on:click__window__debounce.500ms.leading "fn()")
+}
+}
+
+@defproc[(ds:init [expression string?]
+                  [#:once once boolean? #f]
+                  [#:delay delay (or/c string? number? #f) #f]
+                  [#:viewtransition viewtransition boolean? #f]) (list/c symbol? string?)]{
+Execute @racket[expression] when the element is loaded into the DOM.
+
+@codeblock{
+(ds:init (sse-get "/events"))             ; => '(data-init "@"@"get('/events')")
+(ds:init "$count = 1" #:delay "500ms")   ; => '(data-init__delay.500ms "$count = 1")
+}
+}
+
+@defproc[(ds:on-intersect [expression string?]
+                          [#:once once boolean? #f]
+                          [#:half half boolean? #f]
+                          [#:full full boolean? #f]
+                          [#:exit exit boolean? #f]
+                          [#:threshold threshold (or/c string? number? #f) #f]
+                          [#:debounce debounce (or/c string? number? #f) #f]
+                          [#:debounce-leading debounce-leading boolean? #f]
+                          [#:debounce-notrailing debounce-notrailing boolean? #f]
+                          [#:throttle throttle (or/c string? number? #f) #f]
+                          [#:throttle-noleading throttle-noleading boolean? #f]
+                          [#:throttle-trailing throttle-trailing boolean? #f]
+                          [#:delay delay (or/c string? number? #f) #f]
+                          [#:viewtransition viewtransition boolean? #f]) (list/c symbol? string?)]{
+Execute @racket[expression] when the element intersects the viewport.
+
+@codeblock{
+(ds:on-intersect (sse-get "/more") #:once #t #:half #t)
+; => '(data-on-intersect__once__half "@"@"get('/more')")
+}
+}
+
+@defproc[(ds:on-interval [expression string?]
+                         [#:duration duration (or/c string? number? #f) #f]
+                         [#:duration-leading duration-leading boolean? #f]
+                         [#:viewtransition viewtransition boolean? #f]) (list/c symbol? string?)]{
+Execute @racket[expression] at a regular interval (default 1 second).
+
+@codeblock{
+(ds:on-interval "$count++" #:duration "500ms")
+; => '(data-on-interval__duration.500ms "$count++")
+}
+}
+
+@defproc[(ds:on-signal-patch [expression string?]
+                             [#:include include (or/c string? #f) #f]
+                             [#:exclude exclude (or/c string? #f) #f]
+                             [#:debounce debounce (or/c string? number? #f) #f]
+                             [#:debounce-leading debounce-leading boolean? #f]
+                             [#:debounce-notrailing debounce-notrailing boolean? #f]
+                             [#:throttle throttle (or/c string? number? #f) #f]
+                             [#:throttle-noleading throttle-noleading boolean? #f]
+                             [#:throttle-trailing throttle-trailing boolean? #f]
+                             [#:delay delay (or/c string? number? #f) #f])
+         (or/c (list/c symbol? string?)
+               (list/c (list/c symbol? string?) (list/c symbol? string?)))]{
+Execute @racket[expression] when signals are patched. When @racket[#:include] or
+@racket[#:exclude] is provided, returns a list of two attribute pairs (the main
+attribute and a @tt{data-on-signal-patch-filter}).
+
+@codeblock{
+(ds:on-signal-patch "console.log('changed')")
+; => '(data-on-signal-patch "console.log('changed')")
+
+(ds:on-signal-patch "fn()" #:include "counter" #:debounce "500ms")
+; => '((data-on-signal-patch__debounce.500ms "fn()")
+;       (data-on-signal-patch-filter "{...}"))
+}
+}
+
+@defproc[(ds:on-raf [expression string?]
+                    [#:throttle throttle (or/c string? number? #f) #f]
+                    [#:throttle-noleading throttle-noleading boolean? #f]
+                    [#:throttle-trailing throttle-trailing boolean? #f]) (list/c symbol? string?)]{
+(PRO) Execute @racket[expression] on every @tt{requestAnimationFrame}.
+
+@codeblock{
+(ds:on-raf "$count++" #:throttle "10ms")
+; => '(data-on-raf__throttle.10ms "$count++")
+}
+}
+
+@defproc[(ds:on-resize [expression string?]
+                       [#:debounce debounce (or/c string? number? #f) #f]
+                       [#:debounce-leading debounce-leading boolean? #f]
+                       [#:debounce-notrailing debounce-notrailing boolean? #f]
+                       [#:throttle throttle (or/c string? number? #f) #f]
+                       [#:throttle-noleading throttle-noleading boolean? #f]
+                       [#:throttle-trailing throttle-trailing boolean? #f]) (list/c symbol? string?)]{
+(PRO) Execute @racket[expression] when the element's dimensions change.
+
+@codeblock{
+(ds:on-resize "$count++" #:debounce "10ms")
+; => '(data-on-resize__debounce.10ms "$count++")
+}
+}
+
+@subsection{Property Attributes}
+
+@defproc[(ds:ignore [#:self self boolean? #f]) (list/c symbol? string?)]{
+Tell Datastar to ignore @tt{data-*} attributes on this element.
+With @racket[#:self], only the element itself is ignored, not descendants.
+
+@codeblock{
+(ds:ignore)            ; => '(data-ignore "")
+(ds:ignore #:self #t)  ; => '(data-ignore__self "")
+}
+}
+
+@defproc[(ds:scroll-into-view [#:smooth smooth boolean? #f]
+                              [#:instant instant boolean? #f]
+                              [#:auto auto boolean? #f]
+                              [#:hstart hstart boolean? #f]
+                              [#:hcenter hcenter boolean? #f]
+                              [#:hend hend boolean? #f]
+                              [#:hnearest hnearest boolean? #f]
+                              [#:vstart vstart boolean? #f]
+                              [#:vcenter vcenter boolean? #f]
+                              [#:vend vend boolean? #f]
+                              [#:vnearest vnearest boolean? #f]
+                              [#:focus focus boolean? #f]) (list/c symbol? string?)]{
+(PRO) Scroll the element into view.
+
+@codeblock{
+(ds:scroll-into-view #:smooth #t #:vend #t)
+; => '(data-scroll-into-view__smooth__vend "")
+}
+}
+
+@defproc[(ds:persist [#:key key (or/c string? #f) #f]
+                     [#:include include (or/c string? #f) #f]
+                     [#:exclude exclude (or/c string? #f) #f]
+                     [#:session session boolean? #f]) (list/c symbol? string?)]{
+(PRO) Persist signals in local storage (or session storage with @racket[#:session]).
+
+@codeblock{
+(ds:persist)                             ; => '(data-persist "")
+(ds:persist #:key "mykey" #:session #t)  ; => '(data-persist:mykey__session "")
+(ds:persist #:include "foo")             ; => '(data-persist "{\"include\": ...}")
+}
+}
+
+@defproc[(ds:query-string [#:include include (or/c string? #f) #f]
+                          [#:exclude exclude (or/c string? #f) #f]
+                          [#:filter filter boolean? #f]
+                          [#:history history boolean? #f]) (list/c symbol? string?)]{
+(PRO) Sync query string params with signal values.
+
+@codeblock{
+(ds:query-string #:filter #t #:history #t)
+; => '(data-query-string__filter__history "")
+}
+}
+
+@defproc[(ds:json-signals [#:include include (or/c string? #f) #f]
+                          [#:exclude exclude (or/c string? #f) #f]
+                          [#:terse terse boolean? #f]) (list/c symbol? string?)]{
+Display a JSON representation of signals in the element's text content.
+Useful for debugging.
+
+@codeblock{
+(ds:json-signals)                            ; => '(data-json-signals "")
+(ds:json-signals #:include "counter" #:terse #t)
+; => '(data-json-signals__terse "{\"include\": ...}")
+}
+}
+
+@defproc[(ds:preserve-attrs [attrs (or/c string? (listof string?))]) (list/c symbol? string?)]{
+Preserve the given attribute(s) when morphing.
+
+@codeblock{
+(ds:preserve-attrs "open")             ; => '(data-preserve-attr "open")
+(ds:preserve-attrs '("open" "class"))  ; => '(data-preserve-attr "open class")
+}
 }
 
 @section[#:tag "write-profiles"]{Write Profiles}
