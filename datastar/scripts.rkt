@@ -4,6 +4,7 @@
          racket/match
          racket/string
          (submod "elements.rkt" internal)
+         "constants.rkt"
          "private/utils.rkt"
          "sse.rkt")
 
@@ -63,7 +64,7 @@
             script))
 
   (build-patch-elements script-tag
-                        #:mode "append"
+                        #:mode patch-mode-append
                         #:selector "body"
                         #:event-id event-id
                         #:retry-duration retry-duration))

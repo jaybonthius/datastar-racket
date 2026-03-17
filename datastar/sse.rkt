@@ -42,13 +42,14 @@
       (flush-output (sse-raw-out gen)))))
 
 (define (accepts-encoding? request encoding)
+  (define encoding-str (symbol->string encoding))
   (define accept-header
     (for/or ([h (in-list (request-headers/raw request))])
       (and (equal? (string-downcase (bytes->string/utf-8 (header-field h))) "accept-encoding")
            (header-value h))))
   (and accept-header
        (for/or ([part (in-list (regexp-split #rx"," (bytes->string/utf-8 accept-header)))])
-         (string-ci=? (string-trim (car (string-split part ";"))) encoding))))
+         (string-ci=? (string-trim (car (string-split part ";"))) encoding-str))))
 
 (define (datastar-sse request
                       on-open
@@ -59,11 +60,12 @@
       (if (and enc (not (accepts-encoding? request enc))) basic-write-profile wp)))
   (define encoding (write-profile-content-encoding wp*))
   (define extra-headers
-    (for/list ([(k v) (in-hash SSE-HEADERS)])
+    (for/list ([(k v) (in-hash sse-headers)])
       (make-header (string->bytes/utf-8 k) (string->bytes/utf-8 v))))
   (define all-headers
     (if encoding
-        (cons (make-header #"Content-Encoding" (string->bytes/utf-8 encoding)) extra-headers)
+        (cons (make-header #"Content-Encoding" (string->bytes/utf-8 (symbol->string encoding)))
+              extra-headers)
         extra-headers))
   (define conn (current-datastar-connection))
   (response 200
@@ -164,7 +166,7 @@
     (check-equal? (length non-empty-blocks) 10))
 
   ;; Accept-Encoding negotiation tests
-  (define fake-br-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) "br"))
+  (define fake-br-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) 'br))
 
   (define (make-request-with-accept-encoding accept-encoding)
     (make-request #"GET"

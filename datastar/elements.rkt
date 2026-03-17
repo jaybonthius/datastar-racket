@@ -7,10 +7,21 @@
          "sse.rkt")
 
 (define element-patch-mode/c
-  (or/c "outer" "inner" "remove" "replace" "prepend" "append" "before" "after" #f))
-(define element-namespace/c (or/c "html" "svg" "mathml" #f))
+  (or/c patch-mode-outer
+        patch-mode-inner
+        patch-mode-remove
+        patch-mode-replace
+        patch-mode-prepend
+        patch-mode-append
+        patch-mode-before
+        patch-mode-after
+        #f))
+(define element-namespace/c
+  (or/c element-namespace-html element-namespace-svg element-namespace-mathml #f))
 
-(provide (contract-out [patch-elements
+(provide element-patch-mode/c
+         element-namespace/c
+         (contract-out [patch-elements
                         (->* [sse? (or/c string? #f)]
                              [#:selector (or/c string? #f)
                               #:mode element-patch-mode/c
@@ -46,7 +57,7 @@
   (patch-elements gen
                   #f
                   #:selector selector
-                  #:mode "remove"
+                  #:mode patch-mode-remove
                   #:event-id event-id
                   #:retry-duration retry-duration))
 
@@ -58,25 +69,29 @@
                               #:event-id [event-id #f]
                               #:retry-duration [retry-duration #f])
   (define data-lines
-    (append (filter values
-                    (list (and mode
-                               (not (string=? mode DEFAULT-ELEMENT-PATCH-MODE))
-                               (string-append MODE-DATALINE-LITERAL " " mode))
-                          (and selector (string-append SELECTOR-DATALINE-LITERAL " " selector))
-                          (and namespace
-                               (not (string=? namespace DEFAULT-ELEMENT-NAMESPACE))
-                               (string-append NAMESPACE-DATALINE-LITERAL " " namespace))
-                          (and use-view-transitions
-                               (not (eq? use-view-transitions DEFAULT-ELEMENTS-USE-VIEW-TRANSITIONS))
-                               (string-append USE-VIEW-TRANSITION-DATALINE-LITERAL
-                                              " "
-                                              (js-bool use-view-transitions)))))
-            (if elements
-                (map (lambda (line) (string-append ELEMENTS-DATALINE-LITERAL " " line))
-                     (string-split elements "\n"))
-                '())))
+    (append
+     (filter
+      values
+      (list (and mode
+                 (not (eq? mode default-element-patch-mode))
+                 (string-append (symbol->string mode-dataline-literal) " " (symbol->string mode)))
+            (and selector (string-append (symbol->string selector-dataline-literal) " " selector))
+            (and namespace
+                 (not (eq? namespace default-element-namespace))
+                 (string-append (symbol->string namespace-dataline-literal)
+                                " "
+                                (symbol->string namespace)))
+            (and use-view-transitions
+                 (not (eq? use-view-transitions default-elements-use-view-transitions))
+                 (string-append (symbol->string use-view-transition-dataline-literal)
+                                " "
+                                (js-bool use-view-transitions)))))
+     (if elements
+         (map (lambda (line) (string-append (symbol->string elements-dataline-literal) " " line))
+              (string-split elements "\n"))
+         '())))
 
-  (send-event EVENT-TYPE-PATCH-ELEMENTS
+  (send-event event-type-patch-elements
               data-lines
               #:event-id event-id
               #:retry-duration retry-duration))
@@ -101,8 +116,8 @@
     (patch-elements gen
                     "<div>content</div>"
                     #:selector "#target"
-                    #:mode "inner"
-                    #:namespace "svg"
+                    #:mode patch-mode-inner
+                    #:namespace element-namespace-svg
                     #:use-view-transitions #t
                     #:event-id "evt-1"
                     #:retry-duration 2000)
@@ -119,7 +134,7 @@
 
   (test-case "default mode outer is omitted"
     (define-values (gen out) (make-test-sse))
-    (patch-elements gen "<div>test</div>" #:mode "outer")
+    (patch-elements gen "<div>test</div>" #:mode patch-mode-outer)
     (define result (get-test-output out))
     (check-false (string-contains? result "mode")))
 

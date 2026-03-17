@@ -2,10 +2,10 @@
 
 (provide (all-defined-out))
 
-(define DATASTAR-KEY "datastar")
-(define VERSION "1.0.0-RC.8")
+(define datastar-key 'datastar)
+(define datastar-version "1.0.0-RC.8")
 
-(define SSE-HEADERS
+(define sse-headers
   (hash "Cache-Control"
         "no-cache"
         "Content-Type"
@@ -15,26 +15,42 @@
         "X-Accel-Buffering"
         "no"))
 
-(define DEFAULT-ELEMENT-PATCH-MODE "outer")
-(define DEFAULT-ELEMENT-NAMESPACE "html")
+;; Element patch modes
+(define patch-mode-outer 'outer)
+(define patch-mode-inner 'inner)
+(define patch-mode-remove 'remove)
+(define patch-mode-replace 'replace)
+(define patch-mode-prepend 'prepend)
+(define patch-mode-append 'append)
+(define patch-mode-before 'before)
+(define patch-mode-after 'after)
 
-; The type protocol on top of SSE which allows for core pushed based communication between the server and the client.
-(define EVENT-TYPE-PATCH-ELEMENTS "datastar-patch-elements")
-(define EVENT-TYPE-PATCH-SIGNALS "datastar-patch-signals")
+(define default-element-patch-mode patch-mode-outer)
 
-; The default duration for retrying SSE on connection reset. This is part of the underlying retry mechanism of SSE.
-(define DEFAULT-SSE-RETRY-DURATION 1000)
+;; Element namespaces
+(define element-namespace-html 'html)
+(define element-namespace-svg 'svg)
+(define element-namespace-mathml 'mathml)
 
-; Dataline literals
-(define SELECTOR-DATALINE-LITERAL "selector")
-(define MODE-DATALINE-LITERAL "mode")
-(define NAMESPACE-DATALINE-LITERAL "namespace")
-(define ELEMENTS-DATALINE-LITERAL "elements")
-(define USE-VIEW-TRANSITION-DATALINE-LITERAL "useViewTransition")
-(define SIGNALS-DATALINE-LITERAL "signals")
-(define ONLY-IF-MISSING-DATALINE-LITERAL "onlyIfMissing")
+(define default-element-namespace element-namespace-html)
 
-; Should elements be patched using the ViewTransition API?
-(define DEFAULT-ELEMENTS-USE-VIEW-TRANSITIONS #f)
-; Should a given set of signals patch if they are missing?
-(define DEFAULT-PATCH-SIGNALS-ONLY-IF-MISSING #f)
+;; Event types
+(define event-type-patch-elements 'datastar-patch-elements)
+(define event-type-patch-signals 'datastar-patch-signals)
+
+;; The default duration for retrying SSE on connection reset.
+(define default-sse-retry-duration 1000)
+
+;; Dataline literals
+(define selector-dataline-literal 'selector)
+(define mode-dataline-literal 'mode)
+(define namespace-dataline-literal 'namespace)
+(define elements-dataline-literal 'elements)
+(define use-view-transition-dataline-literal 'useViewTransition)
+(define signals-dataline-literal 'signals)
+(define only-if-missing-dataline-literal 'onlyIfMissing)
+
+;; Should elements be patched using the ViewTransition API?
+(define default-elements-use-view-transitions #f)
+;; Should a given set of signals patch if they are missing?
+(define default-patch-signals-only-if-missing #f)

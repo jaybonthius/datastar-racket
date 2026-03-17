@@ -11,7 +11,7 @@
          BROTLI_MODE_TEXT
          BROTLI_MODE_FONT)
 
-(define BROTLI-CONTENT-ENCODING "br")
+(define brotli-content-encoding 'br)
 
 (define (make-brotli-write-profile #:quality [quality 5]
                                    #:window [window 22]
@@ -22,4 +22,4 @@
    (lambda (wrapped raw)
      (flush-output wrapped)
      (flush-output raw))
-   BROTLI-CONTENT-ENCODING))
+   brotli-content-encoding))

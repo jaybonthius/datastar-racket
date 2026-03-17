@@ -32,7 +32,8 @@
   (match (request-method request)
     [#"GET"
      (define datastar-binding
-       (findf (lambda (binding) (equal? (bytes->string/utf-8 (binding-id binding)) DATASTAR-KEY))
+       (findf (lambda (binding)
+                (equal? (bytes->string/utf-8 (binding-id binding)) (symbol->string datastar-key)))
               (request-bindings/raw request)))
      (unless datastar-binding
        (error "No datastar parameter found in request bindings"))
@@ -55,14 +56,14 @@
   (define data-lines
     (append (filter values
                     (list (and only-if-missing
-                               (not (eq? only-if-missing DEFAULT-PATCH-SIGNALS-ONLY-IF-MISSING))
-                               (string-append ONLY-IF-MISSING-DATALINE-LITERAL
+                               (not (eq? only-if-missing default-patch-signals-only-if-missing))
+                               (string-append (symbol->string only-if-missing-dataline-literal)
                                               " "
                                               (js-bool only-if-missing)))))
-            (map (lambda (line) (string-append SIGNALS-DATALINE-LITERAL " " line))
+            (map (lambda (line) (string-append (symbol->string signals-dataline-literal) " " line))
                  (string-split signals-str "\n"))))
 
-  (send-event EVENT-TYPE-PATCH-SIGNALS
+  (send-event event-type-patch-signals
               data-lines
               #:event-id event-id
               #:retry-duration retry-duration))
