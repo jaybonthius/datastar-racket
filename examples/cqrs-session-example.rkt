@@ -141,13 +141,8 @@
 ;; ---------------------------------------------------------------------------
 
 (define (home-handler _req)
-  (response/xexpr
-   `(html
-     (head
-      (script
-       ((type "module")
-        (src "https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.8/bundles/datastar.js"))))
-     (body ,(render-main (current-session-id))))))
+  (response/xexpr `(html (head (script ((type "module") (src ,datastar-cdn-url))))
+                         (body ,(render-main (current-session-id))))))
 
 (define (not-found-handler _req)
   (response/xexpr '(html (body "Not found"))))

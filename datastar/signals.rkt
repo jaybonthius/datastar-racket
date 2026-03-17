@@ -15,7 +15,8 @@
                               #:only-if-missing (or/c boolean? #f)
                               #:retry-duration (or/c exact-positive-integer? #f)]
                              void?)]
-                       [read-signals (-> request? jsexpr?)]))
+                       [read-signals (-> request? jsexpr?)]
+                       [datastar-request? (-> request? boolean?)]))
 
 (define (patch-signals gen
                        signals
@@ -43,6 +44,12 @@
      (unless body
        (error "No request body found"))
      (string->jsexpr (bytes->string/utf-8 body))]))
+
+(define (datastar-request? request)
+  (and (for/or ([h (in-list (request-headers/raw request))])
+         (and (equal? (string-downcase (bytes->string/utf-8 (header-field h))) "datastar-request")
+              (equal? (string-downcase (bytes->string/utf-8 (header-value h))) "true")))
+       #t))
 
 (define (build-patch-signals signals
                              #:event-id [event-id #f]
@@ -153,4 +160,31 @@
                     "127.0.0.1"
                     8080
                     "127.0.0.1"))
-    (check-exn exn:fail? (lambda () (read-signals req)))))
+    (check-exn exn:fail? (lambda () (read-signals req))))
+
+  (define (make-request-with-headers method headers)
+    (make-request (string->bytes/utf-8 method)
+                  (url "http" #f "localhost" 8080 #t (list (path/param "test" '())) '() #f)
+                  headers
+                  (delay
+                    '())
+                  #f
+                  "127.0.0.1"
+                  8080
+                  "127.0.0.1"))
+
+  (test-case "datastar-request? returns #t when header is present"
+    (define req (make-request-with-headers "GET" (list (make-header #"Datastar-Request" #"true"))))
+    (check-true (datastar-request? req)))
+
+  (test-case "datastar-request? returns #f without header"
+    (define req (make-request-with-headers "GET" '()))
+    (check-false (datastar-request? req)))
+
+  (test-case "datastar-request? is case-insensitive"
+    (define req (make-request-with-headers "POST" (list (make-header #"datastar-request" #"True"))))
+    (check-true (datastar-request? req)))
+
+  (test-case "datastar-request? returns #f when header value is not true"
+    (define req (make-request-with-headers "GET" (list (make-header #"Datastar-Request" #"false"))))
+    (check-false (datastar-request? req))))

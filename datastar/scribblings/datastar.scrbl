@@ -248,12 +248,35 @@ Logs a message to the browser console via @tt{console.log}. The message is autom
 quoted as a JavaScript string. This is a convenience function that calls @racket[execute-script].
 }
 
+@defproc[(console-error [sse sse?]
+                         [message string?]) void?]{
+Same as @racket[console-log] but uses @tt{console.error}.
+}
+
+@defproc[(replace-url [sse sse?]
+                       [location string?]) void?]{
+Updates the browser URL without navigating, using @tt{window.history.replaceState}.
+This is a convenience function that calls @racket[execute-script].
+}
+
 @section{Reading Signals}
 
 @defproc[(read-signals [request request?]) jsexpr?]{
 Parses incoming signal data from the browser. For GET requests, extracts data from the
 @tt{datastar} query parameter. For other methods, parses the request body as JSON. This is
 a standalone function that operates on the request and does not require an SSE generator.
+}
+
+@defproc[(datastar-request? [request request?]) boolean?]{
+Returns @racket[#t] if the request has a @tt{Datastar-Request: true} header, meaning
+it came from a Datastar action. The check is case-insensitive.
+
+@codeblock{
+(define (handler req)
+  (if (datastar-request? req)
+      (datastar-sse req (lambda (sse) (patch-elements sse "<div id=\"out\">SSE</div>")))
+      (response/xexpr '(html (body (div ((id "out")) "Initial"))))))
+}
 }
 
 @section{Action Helpers}
@@ -340,6 +363,26 @@ For compression support, see the @tt{datastar-brotli} package, which provides a
 Brotli write profile.
 
 @section{Constants}
+
+@subsection{CDN URLs}
+
+@defthing[datastar-cdn-url string?]{
+URL for the Datastar JavaScript bundle on the jsDelivr CDN, derived from
+@racket[datastar-version]. Use this instead of hardcoding the CDN URL:
+
+@codeblock{
+`(script ((type "module") (src ,datastar-cdn-url)))
+}
+}
+
+@defthing[datastar-cdn-map-url string?]{
+URL for the source map corresponding to @racket[datastar-cdn-url].
+}
+
+@defthing[datastar-version string?]{
+The Datastar version string (e.g., @racket["1.0.0-RC.8"]). Used to derive
+@racket[datastar-cdn-url] and @racket[datastar-cdn-map-url].
+}
 
 @subsection{Patch Modes}
 

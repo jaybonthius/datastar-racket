@@ -16,7 +16,9 @@
                               #:retry-duration (or/c exact-positive-integer? #f)]
                              void?)]
                        [redirect (-> sse? string? void?)]
-                       [console-log (-> sse? string? void?)]))
+                       [replace-url (-> sse? string? void?)]
+                       [console-log (-> sse? string? void?)]
+                       [console-error (-> sse? string? void?)]))
 
 (define (execute-script gen
                         script
@@ -35,8 +37,16 @@
   (execute-script gen (format "setTimeout(() => window.location = '~a')" location))
   (void))
 
+(define (replace-url gen location)
+  (execute-script gen (format "window.history.replaceState({}, '', '~a')" location))
+  (void))
+
 (define (console-log gen message)
   (execute-script gen (format "console.log('~a')" message))
+  (void))
+
+(define (console-error gen message)
+  (execute-script gen (format "console.error('~a')" message))
   (void))
 
 (define (build-execute-script script
@@ -93,4 +103,16 @@
     (define-values (gen out) (make-test-sse))
     (execute-script gen "persist()" #:auto-remove #f)
     (define result (get-test-output out))
-    (check-false (string-contains? result "data-effect"))))
+    (check-false (string-contains? result "data-effect")))
+
+  (test-case "console-error wraps in console.error"
+    (define-values (gen out) (make-test-sse))
+    (console-error gen "something broke")
+    (define result (get-test-output out))
+    (check-true (string-contains? result "console.error('something broke')")))
+
+  (test-case "replace-url wraps in history.replaceState"
+    (define-values (gen out) (make-test-sse))
+    (replace-url gen "/new/path?q=foo")
+    (define result (get-test-output out))
+    (check-true (string-contains? result "window.history.replaceState({}, '', '/new/path?q=foo')"))))

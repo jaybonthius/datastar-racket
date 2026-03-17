@@ -5,6 +5,16 @@
 (define datastar-key 'datastar)
 (define datastar-version "1.0.0-RC.8")
 
+(define datastar-cdn-url
+  (string-append "https://cdn.jsdelivr.net/gh/starfederation/datastar@"
+                 datastar-version
+                 "/bundles/datastar.js"))
+
+(define datastar-cdn-map-url
+  (string-append "https://cdn.jsdelivr.net/gh/starfederation/datastar@"
+                 datastar-version
+                 "/bundles/datastar.js.map"))
+
 (define sse-headers
   (hash "Cache-Control"
         "no-cache"
@@ -54,3 +64,15 @@
 (define default-elements-use-view-transitions #f)
 ;; Should a given set of signals patch if they are missing?
 (define default-patch-signals-only-if-missing #f)
+
+(module+ test
+  (require racket/string
+           rackunit)
+
+  (test-case "CDN URLs contain version"
+    (check-true (string-contains? datastar-cdn-url datastar-version))
+    (check-true (string-contains? datastar-cdn-map-url datastar-version)))
+
+  (test-case "CDN URLs have correct suffix"
+    (check-true (string-suffix? datastar-cdn-url "/bundles/datastar.js"))
+    (check-true (string-suffix? datastar-cdn-map-url "/bundles/datastar.js.map"))))
