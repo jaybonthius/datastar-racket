@@ -262,30 +262,30 @@ Convenience functions for generating Datastar
 }
 
 @defproc[(sse-get [url string?] [args string? #f]) string?]{
-Returns a @tt{@@get} action string. When @racket[args] is provided, it is included as a
+Returns a @tt{@"@"get} action string. When @racket[args] is provided, it is included as a
 second argument.
 
 @codeblock{
-(sse-get "/events")           ; => "@@get('/events')"
+(sse-get "/events")           ; => "@"@"get('/events')"
 (sse-get "/events" "{includeLocal: true}")
-                              ; => "@@get('/events', {includeLocal: true})"
+                              ; => "@"@"get('/events', {includeLocal: true})"
 }
 }
 
 @defproc[(sse-post [url string?] [args string? #f]) string?]{
-Returns a @tt{@@post} action string.
+Returns a @tt{@"@"post} action string.
 }
 
 @defproc[(sse-put [url string?] [args string? #f]) string?]{
-Returns a @tt{@@put} action string.
+Returns a @tt{@"@"put} action string.
 }
 
 @defproc[(sse-patch [url string?] [args string? #f]) string?]{
-Returns a @tt{@@patch} action string.
+Returns a @tt{@"@"patch} action string.
 }
 
 @defproc[(sse-delete [url string?] [args string? #f]) string?]{
-Returns a @tt{@@delete} action string.
+Returns a @tt{@"@"delete} action string.
 }
 
 @section[#:tag "write-profiles"]{Write Profiles}
