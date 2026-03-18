@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/contract/base
+         xml
          "constants.rkt"
          "private/elements.rkt"
          "private/sse.rkt"
@@ -23,6 +24,15 @@
          element-namespace/c
          (contract-out [patch-elements
                         (->* [sse? (or/c string? #f)]
+                             [#:selector (or/c string? #f)
+                              #:mode element-patch-mode/c
+                              #:namespace element-namespace/c
+                              #:use-view-transitions (or/c boolean? #f)
+                              #:event-id (or/c string? #f)
+                              #:retry-duration (or/c exact-positive-integer? #f)]
+                             void?)]
+                       [patch-elements/xexpr
+                        (->* [sse? xexpr/c]
                              [#:selector (or/c string? #f)
                               #:mode element-patch-mode/c
                               #:namespace element-namespace/c
@@ -58,5 +68,22 @@
                   #f
                   #:selector selector
                   #:mode patch-mode-remove
+                  #:event-id event-id
+                  #:retry-duration retry-duration))
+
+(define (patch-elements/xexpr gen
+                              xexpr
+                              #:selector [selector #f]
+                              #:mode [mode #f]
+                              #:namespace [namespace #f]
+                              #:use-view-transitions [use-view-transitions #f]
+                              #:event-id [event-id #f]
+                              #:retry-duration [retry-duration #f])
+  (patch-elements gen
+                  (xexpr->string xexpr)
+                  #:selector selector
+                  #:mode mode
+                  #:namespace namespace
+                  #:use-view-transitions use-view-transitions
                   #:event-id event-id
                   #:retry-duration retry-duration))

@@ -3,7 +3,8 @@
 (require datastar
          (only-in datastar/private/sse make-test-sse get-test-output)
          racket/string
-         rackunit)
+         rackunit
+         xml)
 
 (provide elements-tests)
 
@@ -74,7 +75,43 @@
                     (string-append "event: datastar-patch-elements\n"
                                    "data: mode remove\n"
                                    "data: selector #gone\n"
-                                   "\n")))))
+                                   "\n")))
+
+    (test-case "patch-elements/xexpr produces same output as patch-elements"
+      (define-values (gen1 out1) (make-test-sse))
+      (define-values (gen2 out2) (make-test-sse))
+      (patch-elements gen1 (xexpr->string '(div ((id "out")) "hi")))
+      (patch-elements/xexpr gen2 '(div ((id "out")) "hi"))
+      (check-equal? (get-test-output out1) (get-test-output out2)))
+
+    (test-case "patch-elements/xexpr with all options"
+      (define-values (gen out) (make-test-sse))
+      (patch-elements/xexpr gen
+                            '(div "content")
+                            #:selector "#target"
+                            #:mode patch-mode-inner
+                            #:namespace element-namespace-svg
+                            #:use-view-transitions #t
+                            #:event-id "evt-1"
+                            #:retry-duration 2000)
+      (check-equal? (get-test-output out)
+                    (string-append "event: datastar-patch-elements\n"
+                                   "id: evt-1\n"
+                                   "retry: 2000\n"
+                                   "data: mode inner\n"
+                                   "data: selector #target\n"
+                                   "data: namespace svg\n"
+                                   "data: useViewTransition true\n"
+                                   "data: elements <div>content</div>\n"
+                                   "\n")))
+
+    (test-case "patch-elements/xexpr with nested xexpr"
+      (define-values (gen out) (make-test-sse))
+      (patch-elements/xexpr gen '(div ((id "x")) (span "hello") " " (span "world")))
+      (define result (get-test-output out))
+      (check-true (string-contains?
+                   result
+                   "elements <div id=\"x\"><span>hello</span> <span>world</span></div>")))))
 
 (module+ test
   (require rackunit/text-ui)

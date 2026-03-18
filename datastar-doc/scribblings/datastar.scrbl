@@ -37,8 +37,7 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
          web-server/safety-limits
          web-server/servlet-dispatch
          web-server/web-server
-         json
-         xml)
+         json)
 
 (struct store (message count) #:transparent)
 
@@ -53,8 +52,8 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
   (datastar-sse req
     (lambda (sse)
       ; Patch elements in the DOM
-      (patch-elements sse
-        (xexpr->string '(div ((id "output")) "Hello from Datastar!")))
+      (patch-elements/xexpr sse
+        '(div ((id "output")) "Hello from Datastar!"))
 
       ; Remove elements from the DOM
       (remove-elements sse "#temporary-element")
@@ -93,8 +92,8 @@ If the client disconnects or a send fails, an exception is raised which
   (datastar-sse req
     (lambda (sse)
       (for ([i (in-range 10)])
-        (patch-elements sse
-          (xexpr->string `(div ((id "counter")) ,(format "Count: ~a" i))))
+        (patch-elements/xexpr sse
+          `(div ((id "counter")) ,(format "Count: ~a" i)))
         (patch-signals sse (hash 'counter i))
         (sleep 1)))))
 }
@@ -755,8 +754,8 @@ internally, so calling them inside a locked region does not deadlock.
 @codeblock{
 (call-with-sse-lock sse
   (lambda ()
-    (patch-elements sse (xexpr->string '(div ((id "a")) "part 1")))
-    (patch-elements sse (xexpr->string '(div ((id "b")) "part 2")))
+    (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
+    (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
     (patch-signals sse (hash 'status "updated"))))
 }
 
@@ -769,8 +768,8 @@ Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock
 
 @codeblock{
 (with-sse-lock sse
-  (patch-elements sse (xexpr->string '(div ((id "a")) "part 1")))
-  (patch-elements sse (xexpr->string '(div ((id "b")) "part 2")))
+  (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
+  (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
   (patch-signals sse (hash 'status "updated")))
 }
 }
@@ -804,9 +803,27 @@ The @racket[#:mode] parameter controls how elements are patched. Use the named c
 When @racket[#f] or @racket[patch-mode-outer], the mode data line is omitted.
 
 @codeblock{
-(patch-elements sse (xexpr->string '(div ((id "out")) "hello")))
-(patch-elements sse (xexpr->string '(svg "...")) #:namespace element-namespace-svg)
-(patch-elements sse (xexpr->string '(li "item")) #:selector "#list" #:mode patch-mode-append)
+(patch-elements sse "<div id=\"out\">hello</div>")
+(patch-elements sse "<svg>...</svg>" #:namespace element-namespace-svg)
+(patch-elements sse "<li>item</li>" #:selector "#list" #:mode patch-mode-append)
+}
+}
+
+@defproc[(patch-elements/xexpr [sse sse?]
+                                [xexpr xexpr/c]
+                                [#:selector selector (or/c string? #f) #f]
+                                [#:mode mode element-patch-mode/c #f]
+                                [#:namespace namespace element-namespace/c #f]
+                                [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
+                                [#:event-id event-id (or/c string? #f) #f]
+                                [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+Like @racket[patch-elements], but accepts an x-expression instead of a raw HTML string.
+Converts @racket[xexpr] via @racket[xexpr->string] and delegates to @racket[patch-elements].
+
+@codeblock{
+(patch-elements/xexpr sse '(div ((id "out")) "hello"))
+(patch-elements/xexpr sse '(svg "...") #:namespace element-namespace-svg)
+(patch-elements/xexpr sse '(li "item") #:selector "#list" #:mode patch-mode-append)
 }
 }
 
@@ -952,7 +969,7 @@ has been sent through it so far.
 (require datastar datastar/testing)
 
 (define-values (sse get-output) (make-mock-sse))
-(patch-elements sse (xexpr->string '(div ((id "x")) "hi")))
+(patch-elements/xexpr sse '(div ((id "x")) "hi"))
 (get-output)
 ;; => "event: datastar-patch-elements\ndata: elements <div id=\"x\">hi</div>\n\n"
 }
@@ -969,7 +986,7 @@ reflect exactly what a real client would receive.
 (require datastar datastar/testing)
 
 (define-values (sse get-events) (make-recording-sse))
-(patch-elements sse (xexpr->string '(div "test")))
+(patch-elements/xexpr sse '(div "test"))
 (patch-signals sse (hash 'x 1))
 (define events (get-events))
 (length events)            ;; => 2

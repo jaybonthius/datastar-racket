@@ -7,8 +7,7 @@
          web-server/http
          web-server/safety-limits
          web-server/servlet-dispatch
-         web-server/web-server
-         xml)
+         web-server/web-server)
 
 (file-stream-buffer-mode (current-output-port) 'line)
 
@@ -68,10 +67,10 @@
   (datastar-sse req
                 (lambda (sse)
                   (printf "Client connected~n")
-                  (patch-elements sse (xexpr->string (render-main)))
+                  (patch-elements/xexpr sse (render-main))
                   (let loop ()
                     (define cmd (async-channel-get ch))
-                    (patch-elements sse (xexpr->string (render-main)))
+                    (patch-elements/xexpr sse (render-main))
                     (when (eq? cmd 'create)
                       (patch-signals sse (hash 'input "")))
                     (loop)))
