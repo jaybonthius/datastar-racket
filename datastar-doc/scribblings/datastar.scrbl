@@ -6,13 +6,16 @@
                      net/tcp-sig
                      racket/base
                      racket/contract
+                     racket/set
                      racket/unit
+                     rackunit
                      web-server/http/request-structs
                      web-server/http/response-structs
                      web-server/safety-limits
                      web-server/servlet-dispatch
                      web-server/web-server
-                     json))
+                     json
+                     xml))
 
 @title{Datastar Racket SDK}
 
@@ -34,7 +37,8 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
          web-server/safety-limits
          web-server/servlet-dispatch
          web-server/web-server
-         json)
+         json
+         xml)
 
 (struct store (message count) #:transparent)
 
@@ -49,7 +53,8 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
   (datastar-sse req
     (lambda (sse)
       ; Patch elements in the DOM
-      (patch-elements sse "<div id=\"output\">Hello from Datastar!</div>")
+      (patch-elements sse
+        (xexpr->string '(div ((id "output")) "Hello from Datastar!")))
 
       ; Remove elements from the DOM
       (remove-elements sse "#temporary-element")
@@ -89,7 +94,7 @@ If the client disconnects or a send fails, an exception is raised which
     (lambda (sse)
       (for ([i (in-range 10)])
         (patch-elements sse
-          (format "<div id=\"counter\">Count: ~a</div>" i))
+          (xexpr->string `(div ((id "counter")) ,(format "Count: ~a" i))))
         (patch-signals sse (hash 'counter i))
         (sleep 1)))))
 }
@@ -142,7 +147,543 @@ and static file serving. See the
 for a full example.
 }
 
-@section{SSE Generator}
+@section{Attribute Helpers}
+
+Functions for generating Datastar @tt{data-*}
+@link["https://data-star.dev/reference/attributes"]{HTML attributes} as x-expression
+attribute pairs. Each function returns @racket[(list 'attr-name "value")] which drops
+directly into x-expression templates via unquote. See the
+@link["https://data-star.dev/reference/attributes"]{Datastar attribute reference} for
+full details on each attribute's behavior.
+
+@codeblock{
+;; Without attribute helpers:
+`(button ((data-on:click__debounce.500ms "@"@"post('/search')")
+          (data-class:active "$enabled")
+          (data-show "$query != ''")))
+
+;; With attribute helpers:
+`(button (,(ds:on "click" (sse-post "/search") #:debounce "500ms")
+          ,(ds:class 'active "$enabled")
+          ,(ds:show "$query != ''")))
+}
+
+Modifiers (debounce, throttle, once, etc.) are expressed as keyword arguments rather
+than method chaining. Boolean modifiers take @racket[#t]; parameterized modifiers take
+their value directly.
+
+If you want to use a prefix other than @tt{ds:}, use @racket[prefix-in]:
+@racket[(require (prefix-in my: datastar/attributes))].
+
+@defproc[(ds:attr [key-or-hash (or/c symbol? string? hash?)]
+                  [value-or-unused any/c #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-attr"]{@tt{data-attr}}
+attribute that sets HTML attribute values based on expressions and keeps them in sync.
+
+In the keyed form, @racket[key-or-hash] is the attribute name and
+@racket[value-or-unused] is the expression.
+
+In the hash form, @racket[key-or-hash] is a hash mapping attribute names to expressions.
+
+@codeblock{
+;; Keyed form
+`(button (,(ds:attr 'disabled "$loading")))
+
+;; Hash form
+`(button (,(ds:attr (hash "disabled" "$loading" "aria-busy" "$loading"))))
+}
+}
+
+@defproc[(ds:bind [signal string?] [value string? ""]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-bind"]{@tt{data-bind}}
+attribute that sets up two-way data binding between a signal and an element's value.
+
+The @racket[signal] is the signal name. The optional @racket[value] is rarely needed
+since the element's own value is used.
+
+@codeblock{
+`(input (,(ds:bind "username")))
+`(select (,(ds:bind "choice")) (option ((value "a")) "A") (option ((value "b")) "B"))
+}
+}
+
+@defproc[(ds:class [key-or-hash (or/c symbol? string? hash?)]
+                   [value-or-unused any/c #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-class"]{@tt{data-class}}
+attribute that adds or removes CSS classes based on expressions.
+
+In the keyed form, @racket[key-or-hash] is the class name and @racket[value-or-unused]
+is a boolean expression.
+
+In the hash form, @racket[key-or-hash] is a hash mapping class names to boolean
+expressions.
+
+@codeblock{
+;; Keyed form
+`(button (,(ds:class 'active "$selected")))
+
+;; Hash form
+`(div (,(ds:class (hash "font-bold" "$important" "text-red" "$error"))))
+}
+}
+
+@defproc[(ds:computed [key-or-hash (or/c symbol? string? hash?)]
+                      [value-or-unused any/c #f]) (or/c list? (listof list?))]{
+Generates a @link["https://data-star.dev/reference/attributes#data-computed"]{@tt{data-computed}}
+attribute that creates read-only computed signals derived from reactive expressions.
+
+In the keyed form, @racket[key-or-hash] is the signal name and @racket[value-or-unused]
+is the expression.
+
+In the hash form, @racket[key-or-hash] is a hash mapping signal names to expressions.
+The hash form returns a @emph{list of attribute pairs}, not a single pair. Use
+@racket[,@"@"] (unquote-splicing) to insert them into an x-expression.
+
+@codeblock{
+;; Keyed form
+`(div (,(ds:computed 'total "$price * $quantity")))
+
+;; Hash form (returns list of pairs, use ,@"@")
+`(div (,@"@"(ds:computed (hash 'total "$price * $qty" 'valid "$total > 0"))))
+}
+}
+
+@defproc[(ds:effect [expression string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-effect"]{@tt{data-effect}}
+attribute that runs @racket[expression] reactively whenever any signals it references change.
+
+@codeblock{
+`(div (,(ds:effect "$total = $price * $quantity")))
+}
+}
+
+@defproc[(ds:ignore [#:self self boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-ignore"]{@tt{data-ignore}}
+attribute that tells Datastar to skip processing this element and its descendants.
+
+When @racket[#:self] is @racket[#t], only the element itself is ignored; its children
+are still processed.
+
+@codeblock{
+`(div (,(ds:ignore)) "Datastar will not process this or its children")
+`(div (,(ds:ignore #:self #t)) "Only this element is ignored")
+}
+}
+
+@defproc[(ds:ignore-morph) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-ignore-morph"]{@tt{data-ignore-morph}}
+attribute that tells Datastar's element patcher to skip this element and its children
+when morphing. Takes no arguments.
+
+@codeblock{
+`(div (,(ds:ignore-morph)) "This content will not be morphed")
+}
+}
+
+@defproc[(ds:indicator [signal string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-indicator"]{@tt{data-indicator}}
+attribute that creates a signal set to @tt{true} while a fetch request is in flight.
+
+@codeblock{
+`(button (,(ds:indicator "loading")
+          ,(ds:on "click" (sse-get "/data")))
+         "Fetch")
+`(div (,(ds:show "$loading")) "Loading...")
+}
+}
+
+@defproc[(ds:init [expression string?]
+                  [#:once once boolean? #f]
+                  [#:delay delay (or/c string? number? #f) #f]
+                  [#:viewtransition viewtransition boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-init"]{@tt{data-init}}
+attribute that runs @racket[expression] when the attribute is first processed.
+
+@codeblock{
+(ds:init (sse-get "/events"))
+(ds:init "$count = 0" #:once #t)
+}
+}
+
+@defproc[(ds:json-signals [#:include include (or/c string? #f) #f]
+                          [#:exclude exclude (or/c string? #f) #f]
+                          [#:terse terse boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-json-signals"]{@tt{data-json-signals}}
+attribute that sets the text content of an element to a reactive JSON representation of
+the current signals. Useful for debugging.
+
+@codeblock{
+`(pre (,(ds:json-signals)))
+`(pre (,(ds:json-signals #:include "/^user/" #:terse #t)))
+}
+}
+
+@defproc[(ds:on [event string?]
+                [expression string?]
+                [#:once once boolean? #f]
+                [#:passive passive boolean? #f]
+                [#:capture capture boolean? #f]
+                [#:window window boolean? #f]
+                [#:outside outside boolean? #f]
+                [#:prevent prevent boolean? #f]
+                [#:stop stop boolean? #f]
+                [#:trust trust boolean? #f]
+                [#:debounce debounce (or/c string? number? #f) #f]
+                [#:debounce-leading debounce-leading boolean? #f]
+                [#:debounce-notrailing debounce-notrailing boolean? #f]
+                [#:throttle throttle (or/c string? number? #f) #f]
+                [#:throttle-noleading throttle-noleading boolean? #f]
+                [#:throttle-trailing throttle-trailing boolean? #f]
+                [#:delay delay (or/c string? number? #f) #f]
+                [#:viewtransition viewtransition boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-on"]{@tt{data-on}}
+attribute that attaches an event listener running @racket[expression] when @racket[event]
+is triggered. Keyword arguments correspond to Datastar modifiers.
+
+@codeblock{
+(ds:on "click" "$count++")
+(ds:on "input" (sse-post "/search") #:debounce "250ms")
+(ds:on "click" (sse-get "/data") #:once #t #:prevent #t)
+(ds:on "keydown" "$handleKey(evt)" #:window #t)
+}
+}
+
+@defproc[(ds:on-intersect [expression string?]
+                          [#:once once boolean? #f]
+                          [#:half half boolean? #f]
+                          [#:full full boolean? #f]
+                          [#:exit exit boolean? #f]
+                          [#:threshold threshold (or/c string? number? #f) #f]
+                          [#:debounce debounce (or/c string? number? #f) #f]
+                          [#:debounce-leading debounce-leading boolean? #f]
+                          [#:debounce-notrailing debounce-notrailing boolean? #f]
+                          [#:throttle throttle (or/c string? number? #f) #f]
+                          [#:throttle-noleading throttle-noleading boolean? #f]
+                          [#:throttle-trailing throttle-trailing boolean? #f]
+                          [#:delay delay (or/c string? number? #f) #f]
+                          [#:viewtransition viewtransition boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-on-intersect"]{@tt{data-on-intersect}}
+attribute that runs @racket[expression] when the element intersects with the viewport.
+Keyword arguments correspond to Datastar modifiers.
+
+@codeblock{
+(ds:on-intersect (sse-get "/load-more") #:once #t #:half #t)
+}
+}
+
+@defproc[(ds:on-interval [expression string?]
+                         [#:duration duration (or/c string? number? #f) #f]
+                         [#:duration-leading duration-leading boolean? #f]
+                         [#:viewtransition viewtransition boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-on-interval"]{@tt{data-on-interval}}
+attribute that runs @racket[expression] at a regular interval (default one second).
+Keyword arguments correspond to Datastar modifiers.
+
+@codeblock{
+(ds:on-interval "$count++" #:duration "2s")
+(ds:on-interval (sse-get "/poll") #:duration "5s" #:duration-leading #t)
+}
+}
+
+@defproc[(ds:on-signal-patch [expression string?]
+                             [#:include include (or/c string? #f) #f]
+                             [#:exclude exclude (or/c string? #f) #f]
+                             [#:debounce debounce (or/c string? number? #f) #f]
+                             [#:debounce-leading debounce-leading boolean? #f]
+                             [#:debounce-notrailing debounce-notrailing boolean? #f]
+                             [#:throttle throttle (or/c string? number? #f) #f]
+                             [#:throttle-noleading throttle-noleading boolean? #f]
+                             [#:throttle-trailing throttle-trailing boolean? #f]
+                             [#:delay delay (or/c string? number? #f) #f]) (or/c list? (listof list?))]{
+Generates a @link["https://data-star.dev/reference/attributes#data-on-signal-patch"]{@tt{data-on-signal-patch}}
+attribute that runs @racket[expression] whenever signals are patched.
+
+When @racket[#:include] or @racket[#:exclude] are provided, a separate
+@tt{data-on-signal-patch-filter} attribute is generated alongside the main attribute.
+In this case, the function returns a @emph{list of two attribute pairs} instead of a
+single pair. Use @racket[,@"@"] (unquote-splicing) to insert them.
+
+@codeblock{
+;; No filter (returns single pair)
+`(div (,(ds:on-signal-patch "console.log('patched')")))
+
+;; With filter (returns list of two pairs, use ,@"@")
+`(div (,@"@"(ds:on-signal-patch "console.log('counter changed')"
+                                #:include "/^counter$/"
+                                #:debounce "300ms")))
+}
+}
+
+@defproc[(ds:preserve-attrs [attrs (or/c string? (listof string?))]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-preserve-attr"]{@tt{data-preserve-attr}}
+attribute that preserves specified attributes when Datastar morphs DOM elements.
+
+@racket[attrs] can be a single attribute name string or a list of attribute name strings.
+
+@codeblock{
+;; Preserve the "open" attribute on a <details> element
+`(details ((open "")) (,(ds:preserve-attrs "open"))
+          (summary "Title") "Content")
+
+;; Preserve multiple attributes
+`(details ((open "") (class "custom")) (,(ds:preserve-attrs '("open" "class")))
+          (summary "Title") "Content")
+}
+}
+
+@defproc[(ds:ref [signal string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-ref"]{@tt{data-ref}}
+attribute that creates a signal referencing the DOM element.
+
+@codeblock{
+`(div (,(ds:ref "myDiv")))
+}
+}
+
+@defproc[(ds:show [expression string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-show"]{@tt{data-show}}
+attribute that shows or hides an element based on whether @racket[expression] evaluates
+to @tt{true} or @tt{false}.
+
+@codeblock{
+`(div (,(ds:show "$loggedIn")) "Welcome back")
+}
+}
+
+@defproc[(ds:signals [key-or-hash (or/c symbol? string? hash?)]
+                     [value-or-unused any/c #f]
+                     [#:ifmissing ifmissing boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-signals"]{@tt{data-signals}}
+attribute that patches one or more signals into the signal store.
+
+In the keyed form, @racket[key-or-hash] is a symbol or string signal name and
+@racket[value-or-unused] is the signal's initial value as a string expression.
+
+In the hash form, @racket[key-or-hash] is a Racket hash that is serialized to JSON.
+Nested hashes produce nested signals.
+
+When @racket[#:ifmissing] is @racket[#t], signals are only set if they don't already exist.
+
+@codeblock{
+;; Keyed form
+`(div (,(ds:signals 'count "0")))
+;; => (div ((data-signals:count "0")))
+
+;; Keyed form with ifmissing
+`(div (,(ds:signals 'count "0" #:ifmissing #t)))
+;; => (div ((data-signals:count__ifmissing "0")))
+
+;; Hash form
+`(div (,(ds:signals (hash 'count 0 'name "hello"))))
+;; => (div ((data-signals "{\"count\":0,\"name\":\"hello\"}")))
+
+;; Nested signals
+`(div (,(ds:signals (hash 'form (hash 'name "" 'email "")))))
+}
+}
+
+@defproc[(ds:style [key-or-hash (or/c symbol? string? hash?)]
+                   [value-or-unused any/c #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-style"]{@tt{data-style}}
+attribute that sets inline CSS style properties based on expressions.
+
+In the keyed form, @racket[key-or-hash] is the CSS property name and
+@racket[value-or-unused] is the expression.
+
+In the hash form, @racket[key-or-hash] is a hash mapping CSS property names to
+expressions.
+
+@codeblock{
+;; Keyed form
+`(div (,(ds:style 'background-color "$dark ? 'black' : 'white'")))
+
+;; Hash form
+`(div (,(ds:style (hash "display" "$hidden && 'none'" "color" "$error ? 'red' : 'black'"))))
+}
+}
+
+@defproc[(ds:text [expression string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-text"]{@tt{data-text}}
+attribute that sets the text content of an element to the result of @racket[expression].
+
+@codeblock{
+`(span (,(ds:text "$count")))
+}
+}
+
+
+@subsection{Pro Attributes}
+
+@defproc[(ds:custom-validity [expression string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-custom-validity"]{@tt{data-custom-validity}}
+attribute for custom form validation. An empty string means valid; a non-empty string is the
+error message. This is a Datastar Pro attribute.
+
+@codeblock{
+`(input (,(ds:bind "password")
+         ,(ds:custom-validity "$password.length < 8 ? 'Must be 8+ characters' : ''")))
+}
+}
+
+@defproc[(ds:match-media [signal string?] [query string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-match-media"]{@tt{data-match-media}}
+attribute that creates a signal tracking whether a media query matches. This is a Datastar
+Pro attribute.
+
+@codeblock{
+`(div (,(ds:match-media "is-dark" "'prefers-color-scheme: dark'")))
+}
+}
+
+@defproc[(ds:on-raf [expression string?]
+                    [#:throttle throttle (or/c string? number? #f) #f]
+                    [#:throttle-noleading throttle-noleading boolean? #f]
+                    [#:throttle-trailing throttle-trailing boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-on-raf"]{@tt{data-on-raf}}
+attribute that runs @racket[expression] on every @tt{requestAnimationFrame} callback.
+This is a Datastar Pro attribute.
+}
+
+@defproc[(ds:on-resize [expression string?]
+                       [#:debounce debounce (or/c string? number? #f) #f]
+                       [#:debounce-leading debounce-leading boolean? #f]
+                       [#:debounce-notrailing debounce-notrailing boolean? #f]
+                       [#:throttle throttle (or/c string? number? #f) #f]
+                       [#:throttle-noleading throttle-noleading boolean? #f]
+                       [#:throttle-trailing throttle-trailing boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-on-resize"]{@tt{data-on-resize}}
+attribute that runs @racket[expression] whenever the element's dimensions change.
+This is a Datastar Pro attribute.
+}
+
+@defproc[(ds:persist [#:key key (or/c string? #f) #f]
+                     [#:include include (or/c string? #f) #f]
+                     [#:exclude exclude (or/c string? #f) #f]
+                     [#:session session boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-persist"]{@tt{data-persist}}
+attribute that persists signals in @tt{localStorage} (or @tt{sessionStorage} with
+@racket[#:session]). This is a Datastar Pro attribute.
+
+@codeblock{
+`(div (,(ds:persist)))
+`(div (,(ds:persist #:key "myapp" #:include "/^user\\./" #:session #t)))
+}
+}
+
+@defproc[(ds:query-string [#:include include (or/c string? #f) #f]
+                          [#:exclude exclude (or/c string? #f) #f]
+                          [#:filter filter boolean? #f]
+                          [#:history history boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-query-string"]{@tt{data-query-string}}
+attribute that syncs signal values to and from URL query string parameters. This is a
+Datastar Pro attribute.
+
+@codeblock{
+`(div (,(ds:query-string #:filter #t #:history #t)))
+}
+}
+
+@defproc[(ds:replace-url [expression string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-replace-url"]{@tt{data-replace-url}}
+attribute that replaces the browser URL without reloading. This is a Datastar Pro attribute.
+
+@codeblock{
+`(div (,(ds:replace-url "`/page${$page}`")))
+}
+}
+
+@defproc[(ds:scroll-into-view [#:smooth smooth boolean? #f]
+                              [#:instant instant boolean? #f]
+                              [#:auto auto boolean? #f]
+                              [#:hstart hstart boolean? #f]
+                              [#:hcenter hcenter boolean? #f]
+                              [#:hend hend boolean? #f]
+                              [#:hnearest hnearest boolean? #f]
+                              [#:vstart vstart boolean? #f]
+                              [#:vcenter vcenter boolean? #f]
+                              [#:vend vend boolean? #f]
+                              [#:vnearest vnearest boolean? #f]
+                              [#:focus focus boolean? #f]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-scroll-into-view"]{@tt{data-scroll-into-view}}
+attribute that scrolls the element into view. Keyword arguments correspond to Datastar
+modifiers for scrolling behavior, horizontal/vertical alignment, and focus. This is a
+Datastar Pro attribute.
+
+@codeblock{
+(ds:scroll-into-view #:smooth #t #:vcenter #t)
+}
+}
+
+@defproc[(ds:view-transition [expression string?]) list?]{
+Generates a @link["https://data-star.dev/reference/attributes#data-view-transition"]{@tt{data-view-transition}}
+attribute that sets the @tt{view-transition-name} style attribute. This is a Datastar Pro
+attribute.
+
+@codeblock{
+`(div (,(ds:view-transition "$transitionName")))
+}
+}
+
+@section{Action Helpers}
+
+Convenience functions for generating Datastar
+@link["https://data-star.dev/reference/actions#backend-actions"]{backend action} attribute strings.
+
+@codeblock{
+`(main ((id "main") ,(ds:init (sse-get "/events")))
+       (form (,(ds:on "submit" (sse-post "/todo/create")))
+             (button (,(ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
+                     "Delete")))
+}
+
+@defproc[(sse-get [url string?] [args string? #f]) string?]{
+Returns a @tt{@"@"get} action string. When @racket[args] is provided, it is included as a
+second argument.
+
+@codeblock{
+(sse-get "/events")           ; => "@"@"get('/events')"
+(sse-get "/events" "{includeLocal: true}")
+                              ; => "@"@"get('/events', {includeLocal: true})"
+}
+}
+
+@defproc[(sse-post [url string?] [args string? #f]) string?]{
+Returns a @tt{@"@"post} action string.
+}
+
+@defproc[(sse-put [url string?] [args string? #f]) string?]{
+Returns a @tt{@"@"put} action string.
+}
+
+@defproc[(sse-patch [url string?] [args string? #f]) string?]{
+Returns a @tt{@"@"patch} action string.
+}
+
+@defproc[(sse-delete [url string?] [args string? #f]) string?]{
+Returns a @tt{@"@"delete} action string.
+}
+
+@section{Reading Requests}
+
+@defproc[(read-signals [request request?]) jsexpr?]{
+Parses incoming signal data from the browser. For GET requests, extracts data from the
+@tt{datastar} query parameter. For other methods, parses the request body as JSON. This is
+a standalone function that operates on the request and does not require an SSE generator.
+}
+
+@defproc[(datastar-request? [request request?]) boolean?]{
+Returns @racket[#t] if the request has a @tt{Datastar-Request: true} header, meaning
+it came from a Datastar action. The check is case-insensitive.
+}
+
+@section{SSE Events}
+
+Functions for creating and sending
+@link["https://data-star.dev/reference/sse_events"]{Datastar SSE events}. See the
+@link["https://data-star.dev/reference/sse_events"]{Datastar SSE events reference} for
+full details on event types and their data lines.
+
+@subsection{SSE Generator}
 
 @defproc[(datastar-sse [request request?]
                        [on-open (-> sse? any)]
@@ -214,8 +755,8 @@ internally, so calling them inside a locked region does not deadlock.
 @codeblock{
 (call-with-sse-lock sse
   (lambda ()
-    (patch-elements sse "<div id=\"a\">part 1</div>")
-    (patch-elements sse "<div id=\"b\">part 2</div>")
+    (patch-elements sse (xexpr->string '(div ((id "a")) "part 1")))
+    (patch-elements sse (xexpr->string '(div ((id "b")) "part 2")))
     (patch-signals sse (hash 'status "updated"))))
 }
 
@@ -228,13 +769,13 @@ Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock
 
 @codeblock{
 (with-sse-lock sse
-  (patch-elements sse "<div id=\"a\">part 1</div>")
-  (patch-elements sse "<div id=\"b\">part 2</div>")
+  (patch-elements sse (xexpr->string '(div ((id "a")) "part 1")))
+  (patch-elements sse (xexpr->string '(div ((id "b")) "part 2")))
   (patch-signals sse (hash 'status "updated")))
 }
 }
 
-@section{Sending Events}
+@subsection{Sending Events}
 
 All send functions take an @racket[sse?] generator as their first argument. If the
 connection is closed or an I/O error occurs, an exception is raised. Within
@@ -252,7 +793,8 @@ interleaving.
                           [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
                           [#:event-id event-id (or/c string? #f) #f]
                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Patches HTML elements into the DOM.
+Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-elements"]{@tt{datastar-patch-elements}}
+SSE event that patches HTML elements into the DOM.
 
 The @racket[#:mode] parameter controls how elements are patched. Use the named constants:
 @racket[patch-mode-outer] (morph entire element, default), @racket[patch-mode-inner]
@@ -261,14 +803,10 @@ The @racket[#:mode] parameter controls how elements are patched. Use the named c
 @racket[patch-mode-after], and @racket[patch-mode-remove].
 When @racket[#f] or @racket[patch-mode-outer], the mode data line is omitted.
 
-The @racket[#:namespace] parameter specifies the namespace for creating new elements:
-@racket[element-namespace-html] (default), @racket[element-namespace-svg], or
-@racket[element-namespace-mathml].
-
 @codeblock{
-(patch-elements sse "<div id=\"out\">hello</div>")
-(patch-elements sse "<svg>...</svg>" #:namespace element-namespace-svg)
-(patch-elements sse "<li>item</li>" #:selector "#list" #:mode patch-mode-append)
+(patch-elements sse (xexpr->string '(div ((id "out")) "hello")))
+(patch-elements sse (xexpr->string '(svg "...")) #:namespace element-namespace-svg)
+(patch-elements sse (xexpr->string '(li "item")) #:selector "#list" #:mode patch-mode-append)
 }
 }
 
@@ -276,7 +814,7 @@ The @racket[#:namespace] parameter specifies the namespace for creating new elem
                            [selector string?]
                            [#:event-id event-id (or/c string? #f) #f]
                            [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Removes elements from the DOM by CSS selector. This is a convenience function that calls
+Removes elements from the DOM by CSS selector. Convenience function that calls
 @racket[patch-elements] with @racket[patch-mode-remove].
 }
 
@@ -285,8 +823,9 @@ Removes elements from the DOM by CSS selector. This is a convenience function th
                          [#:event-id event-id (or/c string? #f) #f]
                          [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Patches signals into the signal store using RFC 7386 JSON Merge Patch semantics. Supports
-add/update operations, removal by setting to @tt{null}, and nested recursive patching.
+Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-signals"]{@tt{datastar-patch-signals}}
+SSE event that patches signals into the signal store using RFC 7386 JSON Merge Patch
+semantics.
 }
 
 @defproc[(execute-script [sse sse?]
@@ -295,8 +834,9 @@ add/update operations, removal by setting to @tt{null}, and nested recursive pat
                           [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
                           [#:event-id event-id (or/c string? #f) #f]
                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Executes JavaScript in the browser by injecting a script tag. The script is automatically
-removed after execution unless @racket[auto-remove] is @racket[#f].
+Sends a @link["https://data-star.dev/reference/sse_events#datastar-execute-script"]{@tt{datastar-execute-script}}
+SSE event that executes JavaScript in the browser by injecting a script tag. The script is
+automatically removed after execution unless @racket[auto-remove] is @racket[#f].
 }
 
 @defproc[(redirect [sse sse?]
@@ -321,91 +861,6 @@ Same as @racket[console-log] but uses @tt{console.error}.
 Updates the browser URL without navigating, using @tt{window.history.replaceState}.
 This is a convenience function that calls @racket[execute-script].
 }
-
-@section{Reading Signals}
-
-@defproc[(read-signals [request request?]) jsexpr?]{
-Parses incoming signal data from the browser. For GET requests, extracts data from the
-@tt{datastar} query parameter. For other methods, parses the request body as JSON. This is
-a standalone function that operates on the request and does not require an SSE generator.
-}
-
-@defproc[(datastar-request? [request request?]) boolean?]{
-Returns @racket[#t] if the request has a @tt{Datastar-Request: true} header, meaning
-it came from a Datastar action. The check is case-insensitive.
-
-@codeblock{
-(define (handler req)
-  (if (datastar-request? req)
-      (datastar-sse req (lambda (sse) (patch-elements sse "<div id=\"out\">SSE</div>")))
-      (response/xexpr '(html (body (div ((id "out")) "Initial"))))))
-}
-}
-
-@section{Action Helpers}
-
-Convenience functions for generating Datastar
-@link["https://data-star.dev/reference/action_plugins"]{backend action} attribute strings.
-
-@codeblock{
-`(main ((id "main") ,(ds:init (sse-get "/events")))
-       (form (,(ds:on "submit" (sse-post "/todo/create")))
-             (button (,(ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
-                     "Delete")))
-}
-
-@defproc[(sse-get [url string?] [args string? #f]) string?]{
-Returns a @tt{@"@"get} action string. When @racket[args] is provided, it is included as a
-second argument.
-
-@codeblock{
-(sse-get "/events")           ; => "@"@"get('/events')"
-(sse-get "/events" "{includeLocal: true}")
-                              ; => "@"@"get('/events', {includeLocal: true})"
-}
-}
-
-@defproc[(sse-post [url string?] [args string? #f]) string?]{
-Returns a @tt{@"@"post} action string.
-}
-
-@defproc[(sse-put [url string?] [args string? #f]) string?]{
-Returns a @tt{@"@"put} action string.
-}
-
-@defproc[(sse-patch [url string?] [args string? #f]) string?]{
-Returns a @tt{@"@"patch} action string.
-}
-
-@defproc[(sse-delete [url string?] [args string? #f]) string?]{
-Returns a @tt{@"@"delete} action string.
-}
-
-@section{Attribute Helpers}
-
-Functions for generating Datastar @tt{data-*}
-@link["https://data-star.dev/reference/attributes"]{HTML attributes} as x-expression
-attribute pairs. Each function returns @racket[(list 'attr-name "value")] which drops
-directly into x-expression templates via unquote:
-
-@codeblock{
-;; Without attribute helpers:
-`(input ((data-bind:filter "")
-         (data-on:input "@"@"post('/search')")))
-
-;; With attribute helpers:
-`(input (,(ds:bind "filter")
-         ,(ds:on "input" (sse-post "/search") #:debounce "250ms")))
-}
-
-Modifiers (debounce, throttle, once, etc.) are expressed as keyword arguments rather
-than method chaining. Boolean modifiers take @racket[#t]; parameterized modifiers take
-their value directly.
-
-If you want to use a prefix other than @tt{ds:}, use @racket[prefix-in]:
-@racket[(require (prefix-in my: datastar/attributes))].
-
-For complete documentation of every attribute helper with examples, see the source at @link["https://github.com/jaybonthius/datastar-racket/tree/main/datastar-lib/attributes.rkt"]{GitHub repository}.
 
 @section[#:tag "write-profiles"]{Write Profiles}
 
@@ -497,7 +952,7 @@ has been sent through it so far.
 (require datastar datastar/testing)
 
 (define-values (sse get-output) (make-mock-sse))
-(patch-elements sse "<div id=\"x\">hi</div>")
+(patch-elements sse (xexpr->string '(div ((id "x")) "hi")))
 (get-output)
 ;; => "event: datastar-patch-elements\ndata: elements <div id=\"x\">hi</div>\n\n"
 }
@@ -514,7 +969,7 @@ reflect exactly what a real client would receive.
 (require datastar datastar/testing)
 
 (define-values (sse get-events) (make-recording-sse))
-(patch-elements sse "<div>test</div>")
+(patch-elements sse (xexpr->string '(div "test")))
 (patch-signals sse (hash 'x 1))
 (define events (get-events))
 (length events)            ;; => 2
