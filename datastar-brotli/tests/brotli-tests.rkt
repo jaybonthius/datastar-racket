@@ -31,7 +31,8 @@
                 (flush-output wrapped)
                 (flush-output raw))
               (make-semaphore 1)
-              (box #f)))
+              (box #f)
+              (make-thread-cell #f #f)))
   (values gen wrapped-out raw-out))
 
 ;; Decompresses bytes from a raw-out port and returns the string.
