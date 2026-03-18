@@ -8,54 +8,29 @@
 (require datastar
          net/http-client
          racket/async-channel
-         racket/tcp
          rackunit
          web-server/safety-limits
-         web-server/servlet-env)
+         web-server/servlet-dispatch
+         web-server/web-server)
 
 ;; ============================================================================
 ;; Test infrastructure
 ;; ============================================================================
 
-;; Finds a free port by briefly binding and releasing.
-(define (find-free-port)
-  (define listener (tcp-listen 0 5 #t "127.0.0.1"))
-  (define-values (_1 port _2 _3) (tcp-addresses listener #t))
-  (tcp-close listener)
-  port)
-
-;; Waits until a TCP connection to 127.0.0.1:port succeeds or times out.
-(define (wait-for-server! port #:timeout [timeout 5])
-  (define deadline (+ (current-inexact-milliseconds) (* timeout 1000)))
-  (let loop ()
-    (cond
-      [(> (current-inexact-milliseconds) deadline)
-       (error 'wait-for-server! "server did not start within ~a seconds" timeout)]
-      [(with-handlers ([exn:fail:network? (lambda (_) #f)])
-         (define-values (in out) (tcp-connect "127.0.0.1" port))
-         (close-input-port in)
-         (close-output-port out)
-         #t)
-       (void)]
-      [else
-       (sleep 0.05)
-       (loop)])))
-
 ;; Starts a test server with the given dispatch handler. Returns (values port stop-thunk).
 (define (start-test-server! handler)
-  (define port (find-free-port))
-  (define server-thread
-    (thread (lambda ()
-              (serve/servlet handler
-                             #:command-line? #t
-                             #:listen-ip "127.0.0.1"
-                             #:port port
-                             #:servlet-regexp #rx""
-                             #:connection-close? #t
-                             #:safety-limits (make-safety-limits #:response-timeout +inf.0
-                                                                 #:response-send-timeout +inf.0)))))
-  (wait-for-server! port)
-  (values port (lambda () (kill-thread server-thread))))
+  (define confirm-ch (make-async-channel))
+  (define stop
+    (serve #:dispatch (dispatch/servlet handler)
+           #:tcp@ datastar-tcp@
+           #:listen-ip "127.0.0.1"
+           #:port 0
+           #:connection-close? #t
+           #:safety-limits (make-safety-limits #:response-timeout +inf.0
+                                               #:response-send-timeout +inf.0)
+           #:confirmation-channel confirm-ch))
+  (define port (async-channel-get confirm-ch))
+  (values port stop))
 
 ;; Opens an SSE connection and returns (values http-conn status headers input-port).
 ;; Uses sendrecv! which blocks until the response is complete — suitable for
@@ -357,8 +332,6 @@
   (define (handler req)
     (datastar-sse req
                   (lambda (sse)
-                    ;; When the client disconnects, the monitor thread
-                    ;; breaks this thread, and dynamic-wind fires on-close.
                     (let loop ()
                       (define msg (async-channel-get notify-ch))
                       (patch-elements sse (format "<div>~a</div>" msg))
@@ -374,15 +347,10 @@
   (http-conn-send! conn "/" #:method "GET" #:headers '("Accept: text/event-stream"))
   (http-conn-close! conn)
 
-  ;; Push messages to force the handler to attempt writes on the dead connection.
-  ;; Eventually patch-elements raises, the error is caught by datastar-sse's
-  ;; with-handlers, and dynamic-wind triggers on-close.
-  (for ([_ (in-range 5)])
-    (async-channel-put notify-ch "ping")
-    (sleep 0.3))
-
-  (sleep 1)
-  (check-true (unbox close-called) "on-close should fire after client disconnects and a write fails")
+  ;; With datastar-tcp@, the monitor thread detects the disconnect immediately
+  ;; via the TCP input port, without needing to force writes.
+  (sleep 2)
+  (check-true (unbox close-called) "on-close should fire after client disconnects")
   (stop))
 
 ;; ============================================================================

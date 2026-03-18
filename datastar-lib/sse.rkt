@@ -1,11 +1,11 @@
 #lang racket/base
 
-(require racket/contract/base
+(require net/tcp-sig
+         racket/contract/base
          racket/string
+         (prefix-in racket: racket/tcp)
+         racket/unit
          web-server/http
-         web-server/http/response
-         web-server/private/connection-manager
-         web-server/servlet/servlet-structs
          "private/constants.rkt"
          "private/sse.rkt")
 
@@ -13,22 +13,36 @@
                         (->* [request? (-> sse? any)]
                              [#:on-close (or/c (-> sse? any) #f) #:write-profile write-profile?]
                              response?)]
-                       [dispatch/datastar
-                        (-> (-> request? can-be-response?) (-> connection? request? any))]
                        [close-sse (-> sse? void?)]
                        [sse-closed? (-> sse? boolean?)]
                        [sse? (-> any/c boolean?)]
                        [call-with-sse-lock (-> sse? (-> any) any)]
                        [write-profile? (-> any/c boolean?)]
                        [basic-write-profile write-profile?])
-         with-sse-lock)
+         with-sse-lock
+         datastar-tcp@)
 
-(define current-datastar-connection (make-parameter #f))
+(define current-datastar-input-port (make-parameter #f))
 
-(define (dispatch/datastar servlet)
-  (lambda (conn req)
-    (parameterize ([current-datastar-connection conn])
-      (output-response conn (servlet req)))))
+(define-unit datastar-tcp@
+             (import)
+             (export tcp^)
+             (define tcp-listen racket:tcp-listen)
+             (define tcp-listener? racket:tcp-listener?)
+             (define tcp-close racket:tcp-close)
+             (define tcp-connect racket:tcp-connect)
+             (define tcp-connect/enable-break racket:tcp-connect/enable-break)
+             (define tcp-accept-ready? racket:tcp-accept-ready?)
+             (define tcp-addresses racket:tcp-addresses)
+             (define tcp-abandon-port racket:tcp-abandon-port)
+             (define (tcp-accept listener)
+               (define-values (ip op) (racket:tcp-accept listener))
+               (current-datastar-input-port ip)
+               (values ip op))
+             (define (tcp-accept/enable-break listener)
+               (define-values (ip op) (racket:tcp-accept/enable-break listener))
+               (current-datastar-input-port ip)
+               (values ip op)))
 
 (define (close-sse gen)
   (unless (unbox (sse-closed-box gen))
@@ -64,7 +78,7 @@
         (cons (make-header #"Content-Encoding" (string->bytes/utf-8 (symbol->string encoding)))
               extra-headers)
         extra-headers))
-  (define conn (current-datastar-connection))
+  (define ip (current-datastar-input-port))
   (response 200
             #"OK"
             (current-seconds)
@@ -81,9 +95,9 @@
                           (make-thread-cell #f #f)))
               (define on-open-thread (current-thread))
               (define monitor-thread
-                (and conn
+                (and ip
                      (thread (lambda ()
-                               (sync (connection-i-port conn))
+                               (sync ip)
                                (break-thread on-open-thread)))))
               (dynamic-wind void
                             (lambda ()

@@ -6,6 +6,7 @@
          web-server/dispatch
          web-server/http
          web-server/safety-limits
+         web-server/servlet-dispatch
          web-server/web-server
          xml)
 
@@ -124,7 +125,8 @@
 (printf "Starting CQRS example on http://127.0.0.1:8080~n")
 
 (define stop
-  (serve #:dispatch (dispatch/datastar app)
+  (serve #:dispatch (dispatch/servlet app)
+         #:tcp@ datastar-tcp@
          #:listen-ip "127.0.0.1"
          #:port 8080
          #:connection-close? #t

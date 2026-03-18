@@ -3,12 +3,14 @@
 @(require scribble/manual
           (for-label datastar
                      datastar/testing
+                     net/tcp-sig
                      racket/base
                      racket/contract
+                     racket/unit
                      web-server/http/request-structs
                      web-server/http/response-structs
-                     web-server/private/connection-manager
-                     web-server/servlet/servlet-structs
+                     web-server/safety-limits
+                     web-server/servlet-dispatch
                      web-server/web-server
                      json))
 
@@ -30,6 +32,7 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 (require datastar
          web-server/http
          web-server/safety-limits
+         web-server/servlet-dispatch
          web-server/web-server
          json)
 
@@ -63,13 +66,14 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 
 (define stop
   (serve
-   #:dispatch (dispatch/datastar handler)
-   #:listen-ip "127.0.0.1"
-   #:port 8000
-   #:connection-close? #t
-   #:safety-limits (make-safety-limits
-                    #:response-timeout +inf.0
-                    #:response-send-timeout +inf.0)))
+   #:dispatch (dispatch/servlet handler)
+    #:tcp@"@" datastar-tcp@"@"
+    #:listen-ip "127.0.0.1"
+    #:port 8000
+    #:connection-close? #t
+    #:safety-limits (make-safety-limits
+                     #:response-timeout +inf.0
+                     #:response-send-timeout +inf.0)))
 
 (with-handlers ([exn:break? (lambda (e) (stop))])
   (sync/enable-break never-evt))
@@ -107,26 +111,35 @@ You can also use the @racket[#:on-close] callback for cleanup when the connectio
 
 For more examples, see the @link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory} on GitHub.
 
-@section{Dispatcher}
+@section{Server Setup}
 
-@defproc[(dispatch/datastar [servlet (-> request? can-be-response?)]) (-> connection? request? any)]{
-Wraps a servlet into a @link["https://docs.racket-lang.org/web-server-internal/dispatch.html"]{dispatcher}
-for use with @racket[serve]. This is the recommended way to run Datastar applications.
+@defthing[datastar-tcp@ (unit/c (import) (export tcp^))]{
+A @racket[tcp^] unit for use with @racket[serve]'s @racket[#:tcp@] parameter. Enables
+instant client disconnect detection for SSE connections.
 
-When used, @racket[datastar-sse] automatically monitors the underlying TCP connection and
-detects client disconnections immediately. This ensures that the @racket[on-open] callback
-is interrupted and @racket[on-close] fires as soon as the client goes away, rather than
-waiting for the next failed write.
+When provided, @racket[datastar-sse] monitors the underlying TCP input port and interrupts
+@racket[on-open] as soon as the client goes away, ensuring prompt cleanup via
+@racket[on-close]. Without it, everything still works but disconnections are only detected
+on the next failed write.
 
-@racket[dispatch/datastar] can be composed with the standard web server dispatchers
+Use @racket[dispatch/servlet] from @racket[web-server/servlet-dispatch] to convert your
+servlet into a dispatcher for @racket[serve]:
+
+@codeblock{
+(serve
+ #:dispatch (dispatch/servlet handler)
+ #:tcp@"@" datastar-tcp@"@"
+ #:connection-close? #t
+ #:safety-limits (make-safety-limits
+                  #:response-timeout +inf.0
+                  #:response-send-timeout +inf.0))
+}
+
+@racket[dispatch/servlet] composes with the standard web server dispatchers
 (@tt{dispatch-sequencer}, @tt{dispatch-filter}, @tt{dispatch-files}, etc.) for routing
 and static file serving. See the
 @link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory}
 for a full example.
-
-If @racket[dispatch/servlet] is used instead of @racket[dispatch/datastar], everything
-still works but immediate disconnect detection is not available; disconnections will only
-be detected on the next failed write.
 }
 
 @section{SSE Generator}
@@ -140,7 +153,7 @@ Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a 
 returns (or raises an exception), the connection is closed and @racket[on-close] is called
 if provided.
 
-When the server is set up with @racket[dispatch/datastar], client disconnections are detected
+When the server is set up with @racket[datastar-tcp@], client disconnections are detected
 immediately: the SDK monitors the TCP input port and interrupts @racket[on-open] as soon as
 the client goes away, ensuring prompt cleanup via @racket[on-close].
 
@@ -150,9 +163,14 @@ The @racket[write-profile] controls how SSE bytes are written to the connection.
 content encoding in @tt{Accept-Encoding}, the SDK automatically falls back to
 @racket[basic-write-profile].
 
-@bold{Important:} When using @racket[serve], two settings are required for SSE to work correctly:
+@bold{Important:} When using @racket[serve], the following settings are required for SSE to
+work correctly:
 
 @itemlist[
+  @item{@racket[#:tcp@] should be @racket[datastar-tcp@] for instant disconnect detection.
+  Without this, disconnections are only detected on the next failed write, which means
+  @racket[on-close] may not fire promptly if the handler is blocked waiting for data.}
+
   @item{@racket[#:connection-close?] must be @racket[#t]. Without this, the web server uses
   chunked transfer encoding with an internal pipe that silently absorbs writes to dead
   connections, preventing disconnect detection from working and @racket[on-close] from firing.}
