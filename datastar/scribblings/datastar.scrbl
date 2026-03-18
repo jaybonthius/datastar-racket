@@ -173,6 +173,12 @@ Explicitly closes the SSE connection. This is called automatically when the @rac
 callback returns, but can be called earlier if needed. Safe to call multiple times.
 }
 
+@defproc[(sse-closed? [sse sse?]) boolean?]{
+Returns @racket[#t] if the SSE connection is closed, either because @racket[close-sse]
+was called or because the underlying output port was closed (e.g., client disconnected).
+This is a non-destructive check that does not attempt to write to the connection.
+}
+
 @defproc[(call-with-sse-lock [sse sse?] [thunk (-> any)]) any]{
 Holds the SSE generator's lock for the duration of @racket[thunk], preventing
 concurrent sending of SSE events. This ensures that multiple sends are delivered

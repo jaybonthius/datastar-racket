@@ -15,6 +15,7 @@
                        [dispatch/datastar
                         (-> (-> request? can-be-response?) (-> connection? request? any))]
                        [close-sse (-> sse? void?)]
+                       [sse-closed? (-> sse? boolean?)]
                        [sse? (-> any/c boolean?)]
                        [sse-send (-> sse? string? void?)]
                        [call-with-sse-lock (-> sse? (-> any) any)]
@@ -177,6 +178,20 @@
     (define-values (gen _out) (make-test-sse))
     (close-sse gen)
     (check-not-exn (lambda () (close-sse gen))))
+
+  (test-case "sse-closed? returns #f on fresh connection"
+    (define-values (gen _out) (make-test-sse))
+    (check-false (sse-closed? gen)))
+
+  (test-case "sse-closed? returns #t after close-sse"
+    (define-values (gen _out) (make-test-sse))
+    (close-sse gen)
+    (check-true (sse-closed? gen)))
+
+  (test-case "sse-closed? returns #t when output port closed"
+    (define-values (gen out) (make-test-sse))
+    (close-output-port out)
+    (check-true (sse-closed? gen)))
 
   (test-case "concurrent sends do not interleave"
     (define-values (gen out) (make-test-sse))
