@@ -189,8 +189,8 @@ This is only needed when multiple threads send through the same @racket[sse?]
 generator. If each generator is used by a single thread (the common case),
 individual sends are already thread-safe and this is not needed.
 
-The lock is re-entrant: @racket[sse-send] (and therefore all send functions like
-@racket[patch-elements], @racket[patch-signals], etc.) uses @racket[call-with-sse-lock]
+The lock is re-entrant: all send functions (@racket[patch-elements],
+@racket[patch-signals], etc.) use @racket[call-with-sse-lock]
 internally, so calling them inside a locked region does not deadlock.
 
 @codeblock{
@@ -460,27 +460,6 @@ Contract for valid patch modes: any of the @racket[patch-mode-*] constants or @r
 
 @defthing[element-namespace/c flat-contract?]{
 Contract for valid namespaces: any of the @racket[element-namespace-*] constants or @racket[#f].
-}
-
-@subsection{Defaults}
-
-@defthing[default-element-patch-mode symbol?]{
-The default element patch mode (@racket['outer]). When @racket[#:mode] is
-@racket[patch-mode-outer] or @racket[#f], the mode data line is omitted.
-}
-
-@defthing[default-element-namespace symbol?]{
-The default element namespace (@racket['html]).
-}
-
-@subsection{Event Types}
-
-@defthing[event-type-patch-elements symbol?]{
-SSE event type for patching elements: @racket['datastar-patch-elements].
-}
-
-@defthing[event-type-patch-signals symbol?]{
-SSE event type for patching signals: @racket['datastar-patch-signals].
 }
 
 @section{Testing Utilities}

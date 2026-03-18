@@ -6,7 +6,8 @@
          (submod "elements.rkt" internal)
          "constants.rkt"
          "private/utils.rkt"
-         "sse.rkt")
+         "sse.rkt"
+         (only-in (submod "sse.rkt" internal) sse-send))
 
 (provide (contract-out [execute-script
                         (->* [sse? string?]
@@ -19,6 +20,21 @@
                        [replace-url (-> sse? string? void?)]
                        [console-log (-> sse? string? void?)]
                        [console-error (-> sse? string? void?)]))
+
+(define (escape-js-string str)
+  (regexp-replace* #px"[\\\\'\"\n\r\t\v\f\0]"
+                   str
+                   (lambda (m)
+                     (case m
+                       [("\\") "\\\\"]
+                       [("'") "\\'"]
+                       [("\"") "\\\""]
+                       [("\n") "\\n"]
+                       [("\r") "\\r"]
+                       [("\t") "\\t"]
+                       [("\v") "\\v"]
+                       [("\f") "\\f"]
+                       [("\0") "\\0"]))))
 
 (define (execute-script gen
                         script
@@ -34,20 +50,18 @@
                                   #:retry-duration retry-duration)))
 
 (define (redirect gen location)
-  (execute-script gen (format "setTimeout(() => window.location = '~a')" location))
-  (void))
+  (execute-script gen
+                  (format "setTimeout(() => window.location = '~a')" (escape-js-string location))))
 
 (define (replace-url gen location)
-  (execute-script gen (format "window.history.replaceState({}, '', '~a')" location))
-  (void))
+  (execute-script gen
+                  (format "window.history.replaceState({}, '', '~a')" (escape-js-string location))))
 
 (define (console-log gen message)
-  (execute-script gen (format "console.log('~a')" message))
-  (void))
+  (execute-script gen (format "console.log('~a')" (escape-js-string message))))
 
 (define (console-error gen message)
-  (execute-script gen (format "console.error('~a')" message))
-  (void))
+  (execute-script gen (format "console.error('~a')" (escape-js-string message))))
 
 (define (build-execute-script script
                               #:auto-remove [auto-remove #t]
@@ -115,4 +129,22 @@
     (define-values (gen out) (make-test-sse))
     (replace-url gen "/new/path?q=foo")
     (define result (get-test-output out))
-    (check-true (string-contains? result "window.history.replaceState({}, '', '/new/path?q=foo')"))))
+    (check-true (string-contains? result "window.history.replaceState({}, '', '/new/path?q=foo')")))
+
+  (test-case "console-log escapes single quotes in message"
+    (define-values (gen out) (make-test-sse))
+    (console-log gen "it's a test")
+    (define result (get-test-output out))
+    (check-true (string-contains? result "console.log('it\\'s a test')")))
+
+  (test-case "redirect escapes single quotes in URL"
+    (define-values (gen out) (make-test-sse))
+    (redirect gen "/path?x='foo'")
+    (define result (get-test-output out))
+    (check-true (string-contains? result "window.location = '/path?x=\\'foo\\''")))
+
+  (test-case "console-error escapes backslashes and newlines"
+    (define-values (gen out) (make-test-sse))
+    (console-error gen "line1\nline2\\end")
+    (define result (get-test-output out))
+    (check-true (string-contains? result "console.error('line1\\nline2\\\\end')"))))

@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require racket/string
-         "../constants.rkt")
+         (submod "../constants.rkt" internal))
 
 (provide js-bool
          escape

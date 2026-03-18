@@ -1,8 +1,20 @@
 #lang racket/base
 
-(provide (all-defined-out))
+(provide datastar-version
+         datastar-cdn-url
+         datastar-cdn-map-url
+         patch-mode-outer
+         patch-mode-inner
+         patch-mode-remove
+         patch-mode-replace
+         patch-mode-prepend
+         patch-mode-append
+         patch-mode-before
+         patch-mode-after
+         element-namespace-html
+         element-namespace-svg
+         element-namespace-mathml)
 
-(define datastar-key 'datastar)
 (define datastar-version "1.0.0-RC.8")
 
 (define datastar-cdn-url
@@ -15,17 +27,6 @@
                  datastar-version
                  "/bundles/datastar.js.map"))
 
-(define sse-headers
-  (hash "Cache-Control"
-        "no-cache"
-        "Content-Type"
-        "text/event-stream"
-        "Connection"
-        "keep-alive"
-        "X-Accel-Buffering"
-        "no"))
-
-;; Element patch modes
 (define patch-mode-outer 'outer)
 (define patch-mode-inner 'inner)
 (define patch-mode-remove 'remove)
@@ -35,35 +36,51 @@
 (define patch-mode-before 'before)
 (define patch-mode-after 'after)
 
-(define default-element-patch-mode patch-mode-outer)
-
-;; Element namespaces
 (define element-namespace-html 'html)
 (define element-namespace-svg 'svg)
 (define element-namespace-mathml 'mathml)
 
-(define default-element-namespace element-namespace-html)
+(module+ internal
+  (provide datastar-key
+           sse-headers
+           default-element-patch-mode
+           default-element-namespace
+           event-type-patch-elements
+           event-type-patch-signals
+           default-sse-retry-duration
+           selector-dataline-literal
+           mode-dataline-literal
+           namespace-dataline-literal
+           elements-dataline-literal
+           use-view-transition-dataline-literal
+           signals-dataline-literal
+           only-if-missing-dataline-literal
+           default-elements-use-view-transitions
+           default-patch-signals-only-if-missing)
 
-;; Event types
-(define event-type-patch-elements 'datastar-patch-elements)
-(define event-type-patch-signals 'datastar-patch-signals)
+  (define datastar-key 'datastar)
 
-;; The default duration for retrying SSE on connection reset.
-(define default-sse-retry-duration 1000)
+  (define sse-headers
+    (hash "Cache-Control" "no-cache" "Connection" "keep-alive" "X-Accel-Buffering" "no"))
 
-;; Dataline literals
-(define selector-dataline-literal 'selector)
-(define mode-dataline-literal 'mode)
-(define namespace-dataline-literal 'namespace)
-(define elements-dataline-literal 'elements)
-(define use-view-transition-dataline-literal 'useViewTransition)
-(define signals-dataline-literal 'signals)
-(define only-if-missing-dataline-literal 'onlyIfMissing)
+  (define default-element-patch-mode patch-mode-outer)
+  (define default-element-namespace element-namespace-html)
 
-;; Should elements be patched using the ViewTransition API?
-(define default-elements-use-view-transitions #f)
-;; Should a given set of signals patch if they are missing?
-(define default-patch-signals-only-if-missing #f)
+  (define event-type-patch-elements 'datastar-patch-elements)
+  (define event-type-patch-signals 'datastar-patch-signals)
+
+  (define default-sse-retry-duration 1000)
+
+  (define selector-dataline-literal 'selector)
+  (define mode-dataline-literal 'mode)
+  (define namespace-dataline-literal 'namespace)
+  (define elements-dataline-literal 'elements)
+  (define use-view-transition-dataline-literal 'useViewTransition)
+  (define signals-dataline-literal 'signals)
+  (define only-if-missing-dataline-literal 'onlyIfMissing)
+
+  (define default-elements-use-view-transitions #f)
+  (define default-patch-signals-only-if-missing #f))
 
 (module+ test
   (require racket/string

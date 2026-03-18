@@ -6,7 +6,8 @@
          web-server/http/response
          web-server/private/connection-manager
          web-server/servlet/servlet-structs
-         "constants.rkt")
+         "constants.rkt"
+         (submod "constants.rkt" internal))
 
 (provide (contract-out [datastar-sse
                         (->* [request? (-> sse? any)]
@@ -17,7 +18,6 @@
                        [close-sse (-> sse? void?)]
                        [sse-closed? (-> sse? boolean?)]
                        [sse? (-> any/c boolean?)]
-                       [sse-send (-> sse? string? void?)]
                        [call-with-sse-lock (-> sse? (-> any) any)]
                        [write-profile? (-> any/c boolean?)]
                        [basic-write-profile write-profile?])
@@ -133,6 +133,7 @@
            make-write-profile
            make-test-sse
            get-test-output
+           sse-send
            write-profile?
            write-profile-wrap-output
            write-profile-flush!

@@ -3,8 +3,10 @@
 (require racket/contract/base
          racket/string
          "constants.rkt"
+         (submod "constants.rkt" internal)
          "private/utils.rkt"
-         "sse.rkt")
+         "sse.rkt"
+         (only-in (submod "sse.rkt" internal) sse-send))
 
 (define element-patch-mode/c
   (or/c patch-mode-outer

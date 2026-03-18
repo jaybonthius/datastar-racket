@@ -6,8 +6,10 @@
          racket/string
          web-server/http/request-structs
          "constants.rkt"
+         (submod "constants.rkt" internal)
          "private/utils.rkt"
-         "sse.rkt")
+         "sse.rkt"
+         (only-in (submod "sse.rkt" internal) sse-send))
 
 (provide (contract-out [patch-signals
                         (->* [sse? (or/c string? jsexpr?)]
