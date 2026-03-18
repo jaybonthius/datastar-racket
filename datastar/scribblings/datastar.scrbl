@@ -2,6 +2,7 @@
 
 @(require scribble/manual
           (for-label datastar
+                     datastar/testing
                      racket/base
                      racket/contract
                      web-server/http/request-structs
@@ -480,4 +481,64 @@ SSE event type for patching elements: @racket['datastar-patch-elements].
 
 @defthing[event-type-patch-signals symbol?]{
 SSE event type for patching signals: @racket['datastar-patch-signals].
+}
+
+@section{Testing Utilities}
+
+@defmodule[datastar/testing]
+
+Mock SSE generators for testing Datastar handlers without a real HTTP connection.
+Require this module separately from @racket[datastar].
+
+@defproc[(make-mock-sse) (values sse? (-> string?))]{
+Creates a mock @racket[sse?] generator that works with all the normal send functions
+(@racket[patch-elements], @racket[patch-signals], etc.) but doesn't touch the network.
+Returns two values: the generator, and a thunk that returns all the SSE text that
+has been sent through it so far.
+
+@codeblock{
+(require datastar datastar/testing)
+
+(define-values (sse get-output) (make-mock-sse))
+(patch-elements sse "<div id=\"x\">hi</div>")
+(get-output)
+;; => "event: datastar-patch-elements\ndata: elements <div id=\"x\">hi</div>\n\n"
+}
+}
+
+@defproc[(make-recording-sse) (values sse? (-> (listof sse-event?)))]{
+Like @racket[make-mock-sse], but instead of returning raw text, the retrieval thunk
+returns a list of @racket[sse-event] structs, one per event sent.
+
+The events are parsed from the same SSE text that would go over the wire, so they
+reflect exactly what a real client would receive.
+
+@codeblock{
+(require datastar datastar/testing)
+
+(define-values (sse get-events) (make-recording-sse))
+(patch-elements sse "<div>test</div>")
+(patch-signals sse (hash 'x 1))
+(define events (get-events))
+(length events)            ;; => 2
+(sse-event-type (first events))  ;; => "datastar-patch-elements"
+(sse-event-type (second events)) ;; => "datastar-patch-signals"
+}
+}
+
+@defstruct*[sse-event ([type string?]
+                        [id (or/c string? #f)]
+                        [retry (or/c exact-nonnegative-integer? #f)]
+                        [data-lines (listof string?)])
+                       #:transparent]{
+A parsed SSE event. Transparent, so @racket[check-equal?] works on it directly.
+
+@itemlist[
+  @item{@racket[type] -- event type string (e.g. @racket["datastar-patch-elements"]).}
+  @item{@racket[id] -- event ID, or @racket[#f] if none was set.}
+  @item{@racket[retry] -- retry duration in milliseconds, or @racket[#f] if the default
+  was used (defaults are omitted from SSE output).}
+  @item{@racket[data-lines] -- list of data line contents without the @tt{data: } prefix.
+  For example, @racket['("elements <div>hello</div>")].}
+]
 }
