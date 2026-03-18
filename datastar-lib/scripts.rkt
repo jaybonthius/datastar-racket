@@ -4,10 +4,9 @@
          racket/match
          racket/string
          "constants.rkt"
-         (submod "elements.rkt" internal)
-         "private/utils.rkt"
-         "sse.rkt"
-         (only-in (submod "sse.rkt" internal) sse-send))
+         "private/elements.rkt"
+         "private/sse.rkt"
+         "private/utils.rkt")
 
 (provide (contract-out [execute-script
                         (->* [sse? string?]

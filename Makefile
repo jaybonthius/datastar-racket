@@ -10,5 +10,4 @@ fmt:
 
 test:
 	raco test datastar-test/
-	raco test datastar-brotli/
 	raco test sdk-tests/sdk-test-runner.rkt

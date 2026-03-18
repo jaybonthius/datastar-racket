@@ -8,7 +8,7 @@
 
 (require datastar
          datastar-brotli
-         (only-in (submod datastar/sse internal) make-sse)
+         (only-in datastar/private/sse make-sse)
          libbrotli
          rackunit)
 

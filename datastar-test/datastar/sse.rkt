@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require datastar
-         (only-in (submod datastar/sse internal) make-write-profile make-test-sse get-test-output)
+         (only-in datastar/private/sse make-write-profile make-test-sse get-test-output)
          datastar/testing
          net/url
          racket/promise

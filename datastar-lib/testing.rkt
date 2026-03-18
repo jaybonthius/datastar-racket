@@ -4,8 +4,7 @@
          racket/list
          racket/match
          racket/string
-         (only-in "sse.rkt" sse?)
-         (only-in (submod "sse.rkt" internal) make-test-sse get-test-output))
+         "private/sse.rkt")
 
 ;; -------- sse-event struct --------
 

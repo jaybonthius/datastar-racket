@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  datastar-tests:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,25 +24,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
-      - name: Install Package and Dependencies
-        run: raco pkg install --auto --batch datastar-lib/
+      - name: Install Packages and Dependencies
+        run: raco pkg install --auto --batch datastar-lib/ datastar-brotli/ datastar-test/
       - name: Run Tests
-        run: raco pkg install --auto --batch datastar-test/ && raco test datastar-test/
+        run: raco test datastar-test/
       - name: Run SDK Conformance Tests
         run: raco test sdk-tests/sdk-test-runner.rkt
-
-  brotli-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Racket
-        uses: Bogdanp/setup-racket@v1.15
-        with:
-          architecture: 'x64'
-          distribution: 'full'
-          version: '9.1'
-      - name: Install Package and Dependencies
-        run: raco pkg install --auto --batch datastar-lib/ datastar-brotli/
-      - name: Run Brotli Tests
-        run: raco test datastar-brotli/tests/brotli-tests.rkt

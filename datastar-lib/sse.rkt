@@ -6,8 +6,8 @@
          web-server/http/response
          web-server/private/connection-manager
          web-server/servlet/servlet-structs
-         "constants.rkt"
-         (submod "constants.rkt" internal))
+         "private/constants.rkt"
+         "private/sse.rkt")
 
 (provide (contract-out [datastar-sse
                         (->* [request? (-> sse? any)]
@@ -24,12 +24,6 @@
          with-sse-lock)
 
 (define current-datastar-connection (make-parameter #f))
-
-(struct write-profile (wrap-output flush! content-encoding) #:constructor-name make-write-profile)
-
-(define basic-write-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) #f))
-
-(struct sse (out raw-out flush! semaphore closed-box lock-held?) #:constructor-name make-sse)
 
 (define (dispatch/datastar servlet)
   (lambda (conn req)
@@ -103,51 +97,7 @@
                               (when on-close
                                 (on-close gen)))))))
 
-(define (sse-closed? gen)
-  (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))
-
-(define (call-with-sse-lock gen thunk)
-  (if (thread-cell-ref (sse-lock-held? gen))
-      (thunk)
-      (call-with-semaphore
-       (sse-semaphore gen)
-       (lambda ()
-         (thread-cell-set! (sse-lock-held? gen) #t)
-         (dynamic-wind void thunk (lambda () (thread-cell-set! (sse-lock-held? gen) #f)))))))
-
 (define-syntax-rule (with-sse-lock gen body ...)
   (call-with-sse-lock gen
                       (lambda ()
                         body ...)))
-
-(define (sse-send gen event-str)
-  (call-with-sse-lock gen
-                      (lambda ()
-                        (when (sse-closed? gen)
-                          (error 'sse-send "connection is closed"))
-                        (write-string event-str (sse-out gen))
-                        ((sse-flush! gen) (sse-out gen) (sse-raw-out gen)))))
-
-(module+ internal
-  (provide make-sse
-           make-write-profile
-           make-test-sse
-           get-test-output
-           sse-send
-           write-profile?
-           write-profile-wrap-output
-           write-profile-flush!
-           write-profile-content-encoding)
-
-  (define (make-test-sse)
-    (define out (open-output-string))
-    (values (make-sse out
-                      out
-                      (lambda (_wrapped raw) (flush-output raw))
-                      (make-semaphore 1)
-                      (box #f)
-                      (make-thread-cell #f #f))
-            out))
-
-  (define (get-test-output port)
-    (get-output-string port)))
