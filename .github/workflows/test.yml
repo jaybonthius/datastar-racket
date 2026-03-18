@@ -25,9 +25,9 @@ jobs:
         with:
           go-version: 'stable'
       - name: Install Package and Dependencies
-        run: raco pkg install --auto --batch datastar/
+        run: raco pkg install --auto --batch datastar-lib/
       - name: Run Tests
-        run: raco test datastar/
+        run: raco pkg install --auto --batch datastar-test/ && raco test datastar-test/
       - name: Run SDK Conformance Tests
         run: raco test sdk-tests/sdk-test-runner.rkt
 
@@ -43,6 +43,6 @@ jobs:
           distribution: 'full'
           version: '9.1'
       - name: Install Package and Dependencies
-        run: raco pkg install --auto --batch datastar/ datastar-brotli/
+        run: raco pkg install --auto --batch datastar-lib/ datastar-brotli/
       - name: Run Brotli Tests
         run: raco test datastar-brotli/tests/brotli-tests.rkt

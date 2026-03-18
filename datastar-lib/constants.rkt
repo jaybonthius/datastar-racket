@@ -81,15 +81,3 @@
 
   (define default-elements-use-view-transitions #f)
   (define default-patch-signals-only-if-missing #f))
-
-(module+ test
-  (require racket/string
-           rackunit)
-
-  (test-case "CDN URLs contain version"
-    (check-true (string-contains? datastar-cdn-url datastar-version))
-    (check-true (string-contains? datastar-cdn-map-url datastar-version)))
-
-  (test-case "CDN URLs have correct suffix"
-    (check-true (string-suffix? datastar-cdn-url "/bundles/datastar.js"))
-    (check-true (string-suffix? datastar-cdn-map-url "/bundles/datastar.js.map"))))

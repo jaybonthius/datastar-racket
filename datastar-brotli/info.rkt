@@ -2,7 +2,7 @@
 
 (define collection "datastar-brotli")
 
-(define deps '("base" "datastar" "libbrotli"))
+(define deps '("base" "datastar-lib" "libbrotli"))
 
 (define build-deps '("rackunit-lib" "scribble-lib" "racket-doc"))
 

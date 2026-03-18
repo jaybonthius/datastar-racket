@@ -387,7 +387,7 @@ their value directly.
 If you want to use a prefix other than @tt{ds:}, use @racket[prefix-in]:
 @racket[(require (prefix-in my: datastar/attributes))].
 
-For complete documentation of every attribute helper with examples, see the source at @link["https://github.com/jaybonthius/datastar-racket/tree/main/datastar/attributes.rkt"]{GitHub repository}.
+For complete documentation of every attribute helper with examples, see the source at @link["https://github.com/jaybonthius/datastar-racket/tree/main/datastar-lib/attributes.rkt"]{GitHub repository}.
 
 @section[#:tag "write-profiles"]{Write Profiles}
 
