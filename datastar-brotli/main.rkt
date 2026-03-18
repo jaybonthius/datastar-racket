@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require (submod datastar/sse internal)
+(require datastar/private/sse
          libbrotli
          racket/contract/base)
 

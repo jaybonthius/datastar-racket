@@ -15,5 +15,5 @@ Tests the Racket Datastar implementation against the official SDK test suite fro
 ## Running the Tests
 
 ```sh
-raco test tests/sdk-tests
+raco test sdk-tests/sdk-test-runner.rkt
 ```

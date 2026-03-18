@@ -1,19 +1,12 @@
 #lang info
 
-(define collection "datastar")
+(define collection 'multi)
 
-(define deps '("base" "web-server-lib" "net-lib"))
+(define deps '("datastar-lib" "datastar-doc"))
 
-(define build-deps '("scribble-lib" "racket-doc" "rackunit-lib" "web-server-doc"))
-
-(define scribblings '(("scribblings/datastar.scrbl")))
-
-(define compile-omit-paths '("tests"))
-(define test-omit-paths '("tests"))
+(define implies '("datastar-lib" "datastar-doc"))
 
 (define pkg-desc "Datastar SDK for Racket")
-
-(define version "0.2")
 
 (define pkg-authors '("Jay Bonthius"))
 
