@@ -173,13 +173,51 @@ Explicitly closes the SSE connection. This is called automatically when the @rac
 callback returns, but can be called earlier if needed. Safe to call multiple times.
 }
 
+@defproc[(call-with-sse-lock [sse sse?] [thunk (-> any)]) any]{
+Holds the SSE generator's lock for the duration of @racket[thunk], preventing
+concurrent sending of SSE events. This ensures that multiple sends are delivered
+as an atomic batch without events from other threads interleaving.
+
+This is only needed when multiple threads send through the same @racket[sse?]
+generator. If each generator is used by a single thread (the common case),
+individual sends are already thread-safe and this is not needed.
+
+The lock is re-entrant: @racket[sse-send] (and therefore all send functions like
+@racket[patch-elements], @racket[patch-signals], etc.) uses @racket[call-with-sse-lock]
+internally, so calling them inside a locked region does not deadlock.
+
+@codeblock{
+(call-with-sse-lock sse
+  (lambda ()
+    (patch-elements sse "<div id=\"a\">part 1</div>")
+    (patch-elements sse "<div id=\"b\">part 2</div>")
+    (patch-signals sse (hash 'status "updated"))))
+}
+
+If an exception is raised inside @racket[thunk], the lock is released via
+@racket[dynamic-wind], so subsequent sends can still proceed.
+}
+
+@defform[(with-sse-lock sse body ...)]{
+Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock].
+
+@codeblock{
+(with-sse-lock sse
+  (patch-elements sse "<div id=\"a\">part 1</div>")
+  (patch-elements sse "<div id=\"b\">part 2</div>")
+  (patch-signals sse (hash 'status "updated")))
+}
+}
+
 @section{Sending Events}
 
 All send functions take an @racket[sse?] generator as their first argument. If the
 connection is closed or an I/O error occurs, an exception is raised. Within
 @racket[datastar-sse], these exceptions are caught automatically, triggering cleanup
 via @racket[on-close]. Sends are thread-safe: multiple threads can send events through
-the same generator and delivery order is serialized.
+the same generator and delivery order is serialized. If multiple threads share a
+single generator, use @racket[with-sse-lock] to send a group of events without
+interleaving.
 
 @defproc[(patch-elements [sse sse?]
                           [elements (or/c string? #f)]

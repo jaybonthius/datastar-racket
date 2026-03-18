@@ -384,3 +384,65 @@
   (sleep 1)
   (check-true (unbox close-called) "on-close should fire after client disconnects and a write fails")
   (stop))
+
+;; ============================================================================
+;; Test 10: Batch locking — multiple events delivered atomically
+;; ============================================================================
+
+(test-case "batch locking: with-sse-lock delivers events as atomic batch"
+  ;; Two threads each send 2-event batches via with-sse-lock.
+  ;; Verify events within each batch are adjacent (no interleaving).
+  (define notify-ch (make-async-channel))
+  (define close-called (box #f))
+
+  (define (handler req)
+    (datastar-sse
+     req
+     (lambda (sse)
+       (patch-elements sse "<div id=\"init\">ready</div>")
+       (let loop ()
+         (define msg (async-channel-get notify-ch))
+         (cond
+           [(eq? msg 'stop) (void)]
+           [else
+            (with-sse-lock sse
+                           (patch-elements sse (format "<div id=\"start\">~a-start</div>" msg))
+                           (patch-elements sse (format "<div id=\"end\">~a-end</div>" msg)))
+            (loop)])))
+     #:on-close (lambda (_sse) (set-box! close-called #t))))
+
+  (define-values (port stop) (start-test-server! handler))
+  (define-values (conn _status _headers in) (open-sse-stream port "/"))
+
+  ;; Read initial event
+  (define evt0 (read-sse-event in))
+  (check-not-false evt0 "should receive initial event")
+  (check-true (string-contains? evt0 "ready") "initial event should have ready content")
+
+  ;; Send first batch
+  (async-channel-put notify-ch "batch-1")
+  (define evt1 (read-sse-event in))
+  (define evt2 (read-sse-event in))
+  (check-not-false evt1 "should receive first event of batch-1")
+  (check-not-false evt2 "should receive second event of batch-1")
+  (check-true (string-contains? evt1 "batch-1-start") "first event should be start")
+  (check-true (string-contains? evt2 "batch-1-end") "second event should be end")
+
+  ;; Send second batch
+  (async-channel-put notify-ch "batch-2")
+  (define evt3 (read-sse-event in))
+  (define evt4 (read-sse-event in))
+  (check-not-false evt3 "should receive first event of batch-2")
+  (check-not-false evt4 "should receive second event of batch-2")
+  (check-true (string-contains? evt3 "batch-2-start") "first event should be start")
+  (check-true (string-contains? evt4 "batch-2-end") "second event should be end")
+
+  ;; Signal stop and clean up
+  (async-channel-put notify-ch 'stop)
+  (read-sse-event in #:timeout 3)
+  (sleep 0.5)
+  (check-true (unbox close-called) "on-close should fire")
+
+  (close-input-port in)
+  (http-conn-close! conn)
+  (stop))

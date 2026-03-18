@@ -17,8 +17,10 @@
                        [close-sse (-> sse? void?)]
                        [sse? (-> any/c boolean?)]
                        [sse-send (-> sse? string? void?)]
+                       [call-with-sse-lock (-> sse? (-> any) any)]
                        [write-profile? (-> any/c boolean?)]
-                       [basic-write-profile write-profile?]))
+                       [basic-write-profile write-profile?])
+         with-sse-lock)
 
 (define current-datastar-connection (make-parameter #f))
 
@@ -26,7 +28,7 @@
 
 (define basic-write-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) #f))
 
-(struct sse (out raw-out flush! semaphore closed-box) #:constructor-name make-sse)
+(struct sse (out raw-out flush! semaphore closed-box lock-held?) #:constructor-name make-sse)
 
 (define (dispatch/datastar servlet)
   (lambda (conn req)
@@ -76,7 +78,12 @@
             (lambda (out)
               (define wrapped-out ((write-profile-wrap-output wp*) out))
               (define gen
-                (make-sse wrapped-out out (write-profile-flush! wp*) (make-semaphore 1) (box #f)))
+                (make-sse wrapped-out
+                          out
+                          (write-profile-flush! wp*)
+                          (make-semaphore 1)
+                          (box #f)
+                          (make-thread-cell #f #f)))
               (define on-open-thread (current-thread))
               (define monitor-thread
                 (and conn
@@ -98,13 +105,27 @@
 (define (sse-closed? gen)
   (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))
 
+(define (call-with-sse-lock gen thunk)
+  (if (thread-cell-ref (sse-lock-held? gen))
+      (thunk)
+      (call-with-semaphore
+       (sse-semaphore gen)
+       (lambda ()
+         (thread-cell-set! (sse-lock-held? gen) #t)
+         (dynamic-wind void thunk (lambda () (thread-cell-set! (sse-lock-held? gen) #f)))))))
+
+(define-syntax-rule (with-sse-lock gen body ...)
+  (call-with-sse-lock gen
+                      (lambda ()
+                        body ...)))
+
 (define (sse-send gen event-str)
-  (call-with-semaphore (sse-semaphore gen)
-                       (lambda ()
-                         (when (sse-closed? gen)
-                           (error 'sse-send "connection is closed"))
-                         (write-string event-str (sse-out gen))
-                         ((sse-flush! gen) (sse-out gen) (sse-raw-out gen)))))
+  (call-with-sse-lock gen
+                      (lambda ()
+                        (when (sse-closed? gen)
+                          (error 'sse-send "connection is closed"))
+                        (write-string event-str (sse-out gen))
+                        ((sse-flush! gen) (sse-out gen) (sse-raw-out gen)))))
 
 (module+ internal
   (provide make-sse
@@ -118,7 +139,12 @@
 
   (define (make-test-sse)
     (define out (open-output-string))
-    (values (make-sse out out (lambda (_wrapped raw) (flush-output raw)) (make-semaphore 1) (box #f))
+    (values (make-sse out
+                      out
+                      (lambda (_wrapped raw) (flush-output raw))
+                      (make-semaphore 1)
+                      (box #f)
+                      (make-thread-cell #f #f))
             out))
 
   (define (get-test-output port)
@@ -164,6 +190,109 @@
     (define blocks (string-split result "\n\n"))
     (define non-empty-blocks (filter (lambda (s) (not (string=? s ""))) blocks))
     (check-equal? (length non-empty-blocks) 10))
+
+  (test-case "with-sse-lock: sse-send works inside lock (reentrant)"
+    (define-values (gen out) (make-test-sse))
+    (check-not-exn (lambda ()
+                     (with-sse-lock gen
+                                    (sse-send gen "event: test\ndata: first\n\n")
+                                    (sse-send gen "event: test\ndata: second\n\n"))))
+    (define result (get-output-string out))
+    (check-true (string-contains? result "data: first"))
+    (check-true (string-contains? result "data: second")))
+
+  (test-case "without with-sse-lock: sends from other threads CAN interleave"
+    ;; Proves that batch locking is actually needed: without it, a sleep
+    ;; between two sends lets another thread's event slip in between.
+    (define-values (gen out) (make-test-sse))
+    (define barrier (make-semaphore 0))
+    (define threads
+      (for/list ([i (in-range 5)])
+        (thread (lambda ()
+                  ;; All threads start together
+                  (semaphore-wait barrier)
+                  ;; NO with-sse-lock — each sse-send locks independently
+                  (sse-send gen (format "event: test\ndata: start-~a\n\n" i))
+                  (sleep 0.01)
+                  (sse-send gen (format "event: test\ndata: end-~a\n\n" i))))))
+    ;; Release all threads at once
+    (for ([_ (in-range 5)])
+      (semaphore-post barrier))
+    (for-each thread-wait threads)
+    (define result (get-output-string out))
+    ;; Extract the sequence of data values in order
+    (define data-values (regexp-match* #rx"data: ([a-z]+-[0-9])" result #:match-select cadr))
+    ;; Without batch locking, at least one start-N should NOT be immediately
+    ;; followed by its matching end-N (another thread's event slipped in).
+    (define adjacent-pairs
+      (for/sum
+       ([i (in-range (sub1 (length data-values)))])
+       (define this (list-ref data-values i))
+       (define next (list-ref data-values (add1 i)))
+       (define num (substring this (sub1 (string-length this))))
+       (if (and (string-prefix? this "start-") (equal? next (string-append "end-" num))) 1 0)))
+    (check-true (< adjacent-pairs 5) "without batch lock, some pairs should be interleaved"))
+
+  (test-case "with-sse-lock: batch sends are not interleaved by other threads"
+    (define-values (gen out) (make-test-sse))
+    (define threads
+      (for/list ([i (in-range 5)])
+        (thread (lambda ()
+                  (with-sse-lock gen
+                                 (sse-send gen (format "event: test\ndata: start-~a\n\n" i))
+                                 (sleep 0.01)
+                                 (sse-send gen (format "event: test\ndata: end-~a\n\n" i)))))))
+    (for-each thread-wait threads)
+    (define result (get-output-string out))
+    ;; Each start-N must be immediately followed by end-N (no interleaving)
+    (define pairs (regexp-match* #rx"start-[0-9].*?end-[0-9]" result))
+    (check-equal? (length pairs) 5)
+    (for ([p (in-list pairs)])
+      (define nums (regexp-match* #rx"[0-9]" p))
+      (check-equal? (car nums) (cadr nums))))
+
+  (test-case "with-sse-lock: lock released after exception"
+    (define-values (gen out) (make-test-sse))
+    (with-handlers ([exn:fail? void])
+      (with-sse-lock gen (error "boom!")))
+    ;; Lock should be released: subsequent send must succeed
+    (check-not-exn (lambda () (sse-send gen "event: test\ndata: after-error\n\n")))
+    (check-true (string-contains? (get-output-string out) "data: after-error")))
+
+  (test-case "call-with-sse-lock: nested locks do not deadlock"
+    (define-values (gen out) (make-test-sse))
+    (check-not-exn
+     (lambda ()
+       (call-with-sse-lock
+        gen
+        (lambda ()
+          (call-with-sse-lock gen (lambda () (sse-send gen "event: test\ndata: nested\n\n")))))))
+    (check-true (string-contains? (get-output-string out) "data: nested")))
+
+  (test-case "with-sse-lock: child thread does not inherit lock"
+    (define-values (gen out) (make-test-sse))
+    (define result-ch (make-channel))
+    (with-sse-lock gen
+                   ;; Spawn a child thread that tries to send.  Because the child does NOT
+                   ;; inherit the lock-held? thread-cell, it must wait for the semaphore.
+                   ;; We verify this by checking that the child's send only completes after
+                   ;; the outer lock is released.
+                   (define child
+                     (thread (lambda ()
+                               (sse-send gen "event: test\ndata: child\n\n")
+                               (channel-put result-ch 'child-done))))
+                   (sleep 0.05)
+                   ;; Child should still be blocked (semaphore held by us)
+                   (define got (sync/timeout 0 result-ch))
+                   (check-false got "child should be blocked while parent holds lock")
+                   (sse-send gen "event: test\ndata: parent\n\n"))
+    ;; Now lock is released, child can proceed
+    (sync/timeout 2 result-ch)
+    (define result (get-output-string out))
+    ;; Parent's send must appear before child's send
+    (define parent-pos (caar (regexp-match-positions #rx"parent" result)))
+    (define child-pos (caar (regexp-match-positions #rx"child" result)))
+    (check-true (< parent-pos child-pos) "parent send should come before child send"))
 
   ;; Accept-Encoding negotiation tests
   (define fake-br-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) 'br))
