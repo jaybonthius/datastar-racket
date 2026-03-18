@@ -8,6 +8,9 @@
 
 (define scribblings '(("scribblings/datastar.scrbl")))
 
+(define compile-omit-paths '("tests"))
+(define test-omit-paths '("tests"))
+
 (define pkg-desc "Datastar SDK for Racket")
 
 (define version "0.2")
