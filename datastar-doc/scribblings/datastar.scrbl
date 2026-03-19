@@ -1,6 +1,7 @@
 #lang scribble/doc
 
 @(require scribble/manual
+          scribble/example
           (for-label datastar
                      datastar/testing
                      net/tcp-sig
@@ -16,6 +17,9 @@
                      web-server/web-server
                      json
                      xml))
+
+@(define ev (make-base-eval))
+@(ev '(require datastar datastar/testing racket/list))
 
 @title{Datastar Racket SDK}
 
@@ -153,17 +157,21 @@ directly into x-expression templates via unquote. See the
 @link["https://data-star.dev/reference/attributes"]{Datastar attribute reference} for
 full details on each attribute's behavior.
 
-@codeblock{
-;; Without attribute helpers:
-`(button ((data-on:click__debounce.500ms "@"@"post('/search')")
+Without attribute helpers:
+
+@examples[#:eval ev #:label #f
+`(button ((data-on:click__debounce.500ms "@post('/search')")
           (data-class:active "$enabled")
           (data-show "$query != ''")))
+]
 
-;; With attribute helpers:
+With attribute helpers:
+
+@examples[#:eval ev #:label #f
 `(button (,(ds:on "click" (sse-post "/search") #:debounce "500ms")
           ,(ds:class 'active "$enabled")
           ,(ds:show "$query != ''")))
-}
+]
 
 Modifiers (debounce, throttle, once, etc.) are expressed as keyword arguments rather
 than method chaining. Boolean modifiers take @racket[#t]; parameterized modifiers take
@@ -182,13 +190,17 @@ In the keyed form, @racket[key-or-hash] is the attribute name and
 
 In the hash form, @racket[key-or-hash] is a hash mapping attribute names to expressions.
 
-@codeblock{
-;; Keyed form
-`(button (,(ds:attr 'disabled "$loading")))
+Keyed form:
 
-;; Hash form
+@examples[#:eval ev #:label #f
+`(button (,(ds:attr 'disabled "$loading")))
+]
+
+Hash form:
+
+@examples[#:eval ev #:label #f
 `(button (,(ds:attr (hash "disabled" "$loading" "aria-busy" "$loading"))))
-}
+]
 }
 
 @defproc[(ds:bind [signal string?] [value string? ""]) list?]{
@@ -198,12 +210,15 @@ attribute that sets up two-way data binding between a signal and an element's va
 The @racket[signal] is the signal name. The optional @racket[value] is rarely needed
 since the element's own value is used.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(input (,(ds:bind "username")))
+]
+
+@examples[#:eval ev #:label #f
 `(select (,(ds:bind "choice"))
          (option ((value "a")) "A")
          (option ((value "b")) "B"))
-}
+]
 }
 
 @defproc[(ds:class [key-or-hash (or/c symbol? string? hash?)]
@@ -217,13 +232,17 @@ is a boolean expression.
 In the hash form, @racket[key-or-hash] is a hash mapping class names to boolean
 expressions.
 
-@codeblock{
-;; Keyed form
-`(button (,(ds:class 'active "$selected")))
+Keyed form:
 
-;; Hash form
+@examples[#:eval ev #:label #f
+`(button (,(ds:class 'active "$selected")))
+]
+
+Hash form:
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:class (hash "font-bold" "$important" "text-red" "$error"))))
-}
+]
 }
 
 @defproc[(ds:computed [key-or-hash (or/c symbol? string? hash?)]
@@ -238,22 +257,26 @@ In the hash form, @racket[key-or-hash] is a hash mapping signal names to express
 The hash form returns a @emph{list of attribute pairs}, not a single pair. Use
 @racket[,@"@"] (unquote-splicing) to insert them into an x-expression.
 
-@codeblock{
-;; Keyed form
-`(div (,(ds:computed 'total "$price * $quantity")))
+Keyed form:
 
-;; Hash form (returns list of pairs, use ,@"@")
-`(div (,@"@"(ds:computed (hash 'total "$price * $qty" 'valid "$total > 0"))))
-}
+@examples[#:eval ev #:label #f
+`(div (,(ds:computed 'total "$price * $quantity")))
+]
+
+Hash form (returns list of pairs, use @racket[,@"@"]):
+
+@examples[#:eval ev #:label #f
+`(div (,@(ds:computed (hash 'total "$price * $qty" 'valid "$total > 0"))))
+]
 }
 
 @defproc[(ds:effect [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-effect"]{@tt{data-effect}}
 attribute that runs @racket[expression] reactively whenever any signals it references change.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:effect "$total = $price * $quantity")))
-}
+]
 }
 
 @defproc[(ds:ignore [#:self self boolean? #f]) list?]{
@@ -263,10 +286,13 @@ attribute that tells Datastar to skip processing this element and its descendant
 When @racket[#:self] is @racket[#t], only the element itself is ignored; its children
 are still processed.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:ignore)) "Datastar will not process this or its children")
+]
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:ignore #:self #t)) "Only this element is ignored")
-}
+]
 }
 
 @defproc[(ds:ignore-morph) list?]{
@@ -274,19 +300,22 @@ Generates a @link["https://data-star.dev/reference/attributes#data-ignore-morph"
 attribute that tells Datastar's element patcher to skip this element and its children
 when morphing. Takes no arguments.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:ignore-morph)) "This content will not be morphed")
-}
+]
 }
 
 @defproc[(ds:indicator [signal string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-indicator"]{@tt{data-indicator}}
 attribute that creates a signal set to @tt{true} while a fetch request is in flight.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(button (,(ds:indicator "loading") ,(ds:on "click" (sse-get "/data"))) "Fetch")
+]
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:show "$loading")) "Loading...")
-}
+]
 }
 
 @defproc[(ds:init [expression string?]
@@ -296,10 +325,13 @@ attribute that creates a signal set to @tt{true} while a fetch request is in fli
 Generates a @link["https://data-star.dev/reference/attributes#data-init"]{@tt{data-init}}
 attribute that runs @racket[expression] when the attribute is first processed.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 (ds:init (sse-get "/events"))
+]
+
+@examples[#:eval ev #:label #f
 (ds:init "$count = 0" #:once #t)
-}
+]
 }
 
 @defproc[(ds:json-signals [#:include include (or/c string? #f) #f]
@@ -309,10 +341,13 @@ Generates a @link["https://data-star.dev/reference/attributes#data-json-signals"
 attribute that sets the text content of an element to a reactive JSON representation of
 the current signals. Useful for debugging.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(pre (,(ds:json-signals)))
+]
+
+@examples[#:eval ev #:label #f
 `(pre (,(ds:json-signals #:include "/^user/" #:terse #t)))
-}
+]
 }
 
 @defproc[(ds:on [event string?]
@@ -337,12 +372,21 @@ Generates a @link["https://data-star.dev/reference/attributes#data-on"]{@tt{data
 attribute that attaches an event listener running @racket[expression] when @racket[event]
 is triggered. Keyword arguments correspond to Datastar modifiers.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 (ds:on "click" "$count++")
+]
+
+@examples[#:eval ev #:label #f
 (ds:on "input" (sse-post "/search") #:debounce "250ms")
+]
+
+@examples[#:eval ev #:label #f
 (ds:on "click" (sse-get "/data") #:once #t #:prevent #t)
+]
+
+@examples[#:eval ev #:label #f
 (ds:on "keydown" "$handleKey(evt)" #:window #t)
-}
+]
 }
 
 @defproc[(ds:on-intersect [expression string?]
@@ -363,9 +407,9 @@ Generates a @link["https://data-star.dev/reference/attributes#data-on-intersect"
 attribute that runs @racket[expression] when the element intersects with the viewport.
 Keyword arguments correspond to Datastar modifiers.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 (ds:on-intersect (sse-get "/load-more") #:once #t #:half #t)
-}
+]
 }
 
 @defproc[(ds:on-interval [expression string?]
@@ -376,10 +420,13 @@ Generates a @link["https://data-star.dev/reference/attributes#data-on-interval"]
 attribute that runs @racket[expression] at a regular interval (default one second).
 Keyword arguments correspond to Datastar modifiers.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 (ds:on-interval "$count++" #:duration "2s")
+]
+
+@examples[#:eval ev #:label #f
 (ds:on-interval (sse-get "/poll") #:duration "5s" #:duration-leading #t)
-}
+]
 }
 
 @defproc[(ds:on-signal-patch [expression string?]
@@ -400,15 +447,19 @@ When @racket[#:include] or @racket[#:exclude] are provided, a separate
 In this case, the function returns a @emph{list of two attribute pairs} instead of a
 single pair. Use @racket[,@"@"] (unquote-splicing) to insert them.
 
-@codeblock{
-;; No filter (returns single pair)
-`(div (,(ds:on-signal-patch "console.log('patched')")))
+No filter (returns single pair):
 
-;; With filter (returns list of two pairs, use ,@"@")
-`(div (,@"@"(ds:on-signal-patch "console.log('counter changed')"
+@examples[#:eval ev #:label #f
+`(div (,(ds:on-signal-patch "console.log('patched')")))
+]
+
+With filter (returns list of two pairs, use @racket[,@"@"]):
+
+@examples[#:eval ev #:label #f
+`(div (,@(ds:on-signal-patch "console.log('counter changed')"
                              #:include "/^counter$/"
                              #:debounce "300ms")))
-}
+]
 }
 
 @defproc[(ds:preserve-attrs [attrs (or/c string? (listof string?))]) list?]{
@@ -417,25 +468,29 @@ attribute that preserves specified attributes when Datastar morphs DOM elements.
 
 @racket[attrs] can be a single attribute name string or a list of attribute name strings.
 
-@codeblock{
-;; Preserve the "open" attribute on a <details> element
-`(details ((open "")) (,(ds:preserve-attrs "open")) (summary "Title") "Content")
+Preserve the @tt{open} attribute on a @tt{<details>} element:
 
-;; Preserve multiple attributes
+@examples[#:eval ev #:label #f
+`(details ((open "")) (,(ds:preserve-attrs "open")) (summary "Title") "Content")
+]
+
+Preserve multiple attributes:
+
+@examples[#:eval ev #:label #f
 `(details ((open "") (class "custom"))
           (,(ds:preserve-attrs '("open" "class")))
           (summary "Title")
           "Content")
-}
+]
 }
 
 @defproc[(ds:ref [signal string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-ref"]{@tt{data-ref}}
 attribute that creates a signal referencing the DOM element.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:ref "myDiv")))
-}
+]
 }
 
 @defproc[(ds:show [expression string?]) list?]{
@@ -443,9 +498,9 @@ Generates a @link["https://data-star.dev/reference/attributes#data-show"]{@tt{da
 attribute that shows or hides an element based on whether @racket[expression] evaluates
 to @tt{true} or @tt{false}.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:show "$loggedIn")) "Welcome back")
-}
+]
 }
 
 @defproc[(ds:signals [key-or-hash (or/c symbol? string? hash?)]
@@ -462,22 +517,29 @@ Nested hashes produce nested signals.
 
 When @racket[#:ifmissing] is @racket[#t], signals are only set if they don't already exist.
 
-@codeblock{
-;; Keyed form
+Keyed form:
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:signals 'count "0")))
-;; => (div ((data-signals:count "0")))
+]
 
-;; Keyed form with ifmissing
+Keyed form with ifmissing:
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:signals 'count "0" #:ifmissing #t)))
-;; => (div ((data-signals:count__ifmissing "0")))
+]
 
-;; Hash form
+Hash form:
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:signals (hash 'count 0 'name "hello"))))
-;; => (div ((data-signals "{\"count\":0,\"name\":\"hello\"}")))
+]
 
-;; Nested signals
+Nested signals:
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:signals (hash 'form (hash 'name "" 'email "")))))
-}
+]
 }
 
 @defproc[(ds:style [key-or-hash (or/c symbol? string? hash?)]
@@ -491,24 +553,28 @@ In the keyed form, @racket[key-or-hash] is the CSS property name and
 In the hash form, @racket[key-or-hash] is a hash mapping CSS property names to
 expressions.
 
-@codeblock{
-;; Keyed form
-`(div (,(ds:style 'background-color "$dark ? 'black' : 'white'")))
+Keyed form:
 
-;; Hash form
+@examples[#:eval ev #:label #f
+`(div (,(ds:style 'background-color "$dark ? 'black' : 'white'")))
+]
+
+Hash form:
+
+@examples[#:eval ev #:label #f
 `(div
   (,(ds:style
      (hash "display" "$hidden && 'none'" "color" "$error ? 'red' : 'black'"))))
-}
+]
 }
 
 @defproc[(ds:text [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-text"]{@tt{data-text}}
 attribute that sets the text content of an element to the result of @racket[expression].
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(span (,(ds:text "$count")))
-}
+]
 }
 
 
@@ -519,11 +585,11 @@ Generates a @link["https://data-star.dev/reference/attributes#data-custom-validi
 attribute for custom form validation. An empty string means valid; a non-empty string is the
 error message. This is a Datastar Pro attribute.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(input (,(ds:bind "password")
          ,(ds:custom-validity
            "$password.length < 8 ? 'Must be 8+ characters' : ''")))
-}
+]
 }
 
 @defproc[(ds:match-media [signal string?] [query string?]) list?]{
@@ -531,9 +597,9 @@ Generates a @link["https://data-star.dev/reference/attributes#data-match-media"]
 attribute that creates a signal tracking whether a media query matches. This is a Datastar
 Pro attribute.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:match-media "is-dark" "'prefers-color-scheme: dark'")))
-}
+]
 }
 
 @defproc[(ds:on-raf [expression string?]
@@ -565,10 +631,13 @@ Generates a @link["https://data-star.dev/reference/attributes#data-persist"]{@tt
 attribute that persists signals in @tt{localStorage} (or @tt{sessionStorage} with
 @racket[#:session]). This is a Datastar Pro attribute.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:persist)))
+]
+
+@examples[#:eval ev #:label #f
 `(div (,(ds:persist #:key "myapp" #:include "/^user\\./" #:session #t)))
-}
+]
 }
 
 @defproc[(ds:query-string [#:include include (or/c string? #f) #f]
@@ -579,18 +648,18 @@ Generates a @link["https://data-star.dev/reference/attributes#data-query-string"
 attribute that syncs signal values to and from URL query string parameters. This is a
 Datastar Pro attribute.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:query-string #:filter #t #:history #t)))
-}
+]
 }
 
 @defproc[(ds:replace-url [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-replace-url"]{@tt{data-replace-url}}
 attribute that replaces the browser URL without reloading. This is a Datastar Pro attribute.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:replace-url "`/page${$page}`")))
-}
+]
 }
 
 @defproc[(ds:scroll-into-view [#:smooth smooth boolean? #f]
@@ -610,9 +679,9 @@ attribute that scrolls the element into view. Keyword arguments correspond to Da
 modifiers for scrolling behavior, horizontal/vertical alignment, and focus. This is a
 Datastar Pro attribute.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 (ds:scroll-into-view #:smooth #t #:vcenter #t)
-}
+]
 }
 
 @defproc[(ds:view-transition [expression string?]) list?]{
@@ -620,9 +689,9 @@ Generates a @link["https://data-star.dev/reference/attributes#data-view-transiti
 attribute that sets the @tt{view-transition-name} style attribute. This is a Datastar Pro
 attribute.
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(div (,(ds:view-transition "$transitionName")))
-}
+]
 }
 
 @section{Action Helpers}
@@ -630,23 +699,26 @@ attribute.
 Convenience functions for generating Datastar
 @link["https://data-star.dev/reference/actions#backend-actions"]{backend action} attribute strings.
 
-@codeblock{
+@examples[#:eval ev #:label #f
+(define tid 42)
 `(main ((id "main") ,(ds:init (sse-get "/events")))
        (form (,(ds:on "submit" (sse-post "/todo/create")))
              (button (,(ds:on "click"
                               (sse-post (format "/todo/delete/~a" tid))))
                      "Delete")))
-}
+]
 
 @defproc[(sse-get [url string?] [args string? #f]) string?]{
 Returns a @tt{@"@"get} action string. When @racket[args] is provided, it is included as a
 second argument.
 
-@codeblock{
-(sse-get "/events") ; => "@"@"get('/events')"
+@examples[#:eval ev #:label #f
+(sse-get "/events")
+]
+
+@examples[#:eval ev #:label #f
 (sse-get "/events" "{includeLocal: true}")
-; => "@"@"get('/events', {includeLocal: true})"
-}
+]
 }
 
 @defproc[(sse-post [url string?] [args string? #f]) string?]{
@@ -911,9 +983,9 @@ Brotli write profile.
 URL for the Datastar JavaScript bundle on the jsDelivr CDN, derived from
 @racket[datastar-version]. Use this instead of hardcoding the CDN URL:
 
-@codeblock{
+@examples[#:eval ev #:label #f
 `(script ((type "module") (src ,datastar-cdn-url)))
-}
+]
 }
 
 @defthing[datastar-cdn-map-url string?]{
@@ -971,15 +1043,11 @@ Creates a mock @racket[sse?] generator that works with all the normal send funct
 Returns two values: the generator, and a thunk that returns all the SSE text that
 has been sent through it so far.
 
-@codeblock{
-(require datastar
-         datastar/testing)
-
+@examples[#:eval ev #:label #f
 (define-values (sse get-output) (make-mock-sse))
 (patch-elements/xexpr sse '(div ((id "x")) "hi"))
 (get-output)
-;; => "event: datastar-patch-elements\ndata: elements <div id=\"x\">hi</div>\n\n"
-}
+]
 }
 
 @defproc[(make-recording-sse) (values sse? (-> (listof sse-event?)))]{
@@ -989,18 +1057,15 @@ returns a list of @racket[sse-event] structs, one per event sent.
 The events are parsed from the same SSE text that would go over the wire, so they
 reflect exactly what a real client would receive.
 
-@codeblock{
-(require datastar
-         datastar/testing)
-
-(define-values (sse get-events) (make-recording-sse))
-(patch-elements/xexpr sse '(div "test"))
-(patch-signals sse (hash 'x 1))
+@examples[#:eval ev #:label #f
+(define-values (sse2 get-events) (make-recording-sse))
+(patch-elements/xexpr sse2 '(div "test"))
+(patch-signals sse2 (hash 'x 1))
 (define events (get-events))
-(length events) ;; => 2
-(sse-event-type (first events)) ;; => "datastar-patch-elements"
-(sse-event-type (second events)) ;; => "datastar-patch-signals"
-}
+(length events)
+(sse-event-type (first events))
+(sse-event-type (second events))
+]
 }
 
 @defstruct*[sse-event ([type string?]
