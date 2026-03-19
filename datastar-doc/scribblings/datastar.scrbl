@@ -150,7 +150,336 @@ and static file serving. See the
 for a full example.
 }
 
-@section{Attribute Helpers}
+@section{Reading Requests}
+
+@defproc[(read-signals [request request?]) jsexpr?]{
+Parses incoming signal data from the browser. For GET requests, extracts data from the
+@tt{datastar} query parameter. For other methods, parses the request body as JSON. This is
+a standalone function that operates on the request and does not require an SSE generator.
+}
+
+@defproc[(datastar-request? [request request?]) boolean?]{
+Returns @racket[#t] if the request has a @tt{Datastar-Request: true} header, meaning
+it came from a Datastar action. The check is case-insensitive.
+}
+
+@section{SSE Events}
+
+Functions for creating and sending
+@link["https://data-star.dev/reference/sse_events"]{Datastar SSE events}. See the
+@link["https://data-star.dev/reference/sse_events"]{Datastar SSE events reference} for
+full details on event types and their data lines.
+
+@subsection{SSE Generator}
+
+@defproc[(datastar-sse [request request?]
+                       [on-open (-> sse? any)]
+                       [#:on-close on-close (or/c (-> sse? any) #f) #f]
+                       [#:write-profile write-profile write-profile? basic-write-profile]) response?]{
+Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a fresh
+@racket[sse?] generator that can be used to send events to the client. When @racket[on-open]
+returns (or raises an exception), the connection is closed and @racket[on-close] is called
+if provided.
+
+When the server is set up with @racket[datastar-tcp@], client disconnections are detected
+immediately: the SDK monitors the TCP input port and interrupts @racket[on-open] as soon as
+the client goes away, ensuring prompt cleanup via @racket[on-close].
+
+The @racket[write-profile] controls how SSE bytes are written to the connection. The default
+@racket[basic-write-profile] writes uncompressed. Custom write profiles can add compression
+(see @secref["write-profiles"]). If the client does not advertise support for the profile's
+content encoding in @tt{Accept-Encoding}, the SDK automatically falls back to
+@racket[basic-write-profile].
+
+@bold{Important:} When using @racket[serve], the following settings are required for SSE to
+work correctly:
+
+@itemlist[
+  @item{@racket[#:tcp@] should be @racket[datastar-tcp@] for instant disconnect detection.
+  Without this, disconnections are only detected on the next failed write, which means
+  @racket[on-close] may not fire promptly if the handler is blocked waiting for data.}
+
+  @item{@racket[#:connection-close?] must be @racket[#t]. Without this, the web server uses
+  chunked transfer encoding with an internal pipe that silently absorbs writes to dead
+  connections, preventing disconnect detection from working and @racket[on-close] from firing.}
+
+  @item{@racket[#:safety-limits] must disable both @racket[#:response-timeout] and
+  @racket[#:response-send-timeout] (set to @racket[+inf.0]). The defaults of 60 seconds
+  will kill idle SSE connections. @racket[#:response-timeout] limits the total time a handler
+  can run, and @racket[#:response-send-timeout] limits the time between successive writes.
+  Both must be infinite for long-lived SSE connections.}
+]
+}
+
+@defproc[(sse? [v any/c]) boolean?]{
+Returns @racket[#t] if @racket[v] is an SSE generator created by @racket[datastar-sse].
+}
+
+@defproc[(close-sse [sse sse?]) void?]{
+Explicitly closes the SSE connection. This is called automatically when the @racket[on-open]
+callback returns, but can be called earlier if needed. Safe to call multiple times.
+}
+
+@defproc[(sse-closed? [sse sse?]) boolean?]{
+Returns @racket[#t] if the SSE connection is closed, either because @racket[close-sse]
+was called or because the underlying output port was closed (e.g., client disconnected).
+This is a non-destructive check that does not attempt to write to the connection.
+}
+
+@defproc[(call-with-sse-lock [sse sse?] [thunk (-> any)]) any]{
+Holds the SSE generator's lock for the duration of @racket[thunk], preventing
+concurrent sending of SSE events. This ensures that multiple sends are delivered
+as an atomic batch without events from other threads interleaving.
+
+This is only needed when multiple threads send through the same @racket[sse?]
+generator. If each generator is used by a single thread (the common case),
+individual sends are already thread-safe and this is not needed.
+
+The lock is re-entrant: all send functions (@racket[patch-elements],
+@racket[patch-signals], etc.) use @racket[call-with-sse-lock]
+internally, so calling them inside a locked region does not deadlock.
+
+@codeblock{
+(call-with-sse-lock sse
+                    (lambda ()
+                      (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
+                      (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
+                      (patch-signals sse (hash 'status "updated"))))
+}
+
+If an exception is raised inside @racket[thunk], the lock is released via
+@racket[dynamic-wind], so subsequent sends can still proceed.
+}
+
+@defform[(with-sse-lock sse body ...)]{
+Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock].
+
+@codeblock{
+(with-sse-lock sse
+               (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
+               (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
+               (patch-signals sse (hash 'status "updated")))
+}
+}
+
+@subsection{Sending Events}
+
+All send functions take an @racket[sse?] generator as their first argument. If the
+connection is closed or an I/O error occurs, an exception is raised. Within
+@racket[datastar-sse], these exceptions are caught automatically, triggering cleanup
+via @racket[on-close]. Sends are thread-safe: multiple threads can send events through
+the same generator and delivery order is serialized. If multiple threads share a
+single generator, use @racket[with-sse-lock] to send a group of events without
+interleaving.
+
+@defproc[(patch-elements [sse sse?]
+                          [elements (or/c string? #f)]
+                          [#:selector selector (or/c string? #f) #f]
+                          [#:mode mode element-patch-mode/c #f]
+                          [#:namespace namespace element-namespace/c #f]
+                          [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
+                          [#:event-id event-id (or/c string? #f) #f]
+                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-elements"]{@tt{datastar-patch-elements}}
+SSE event that patches one or more elements in the DOM. By default, Datastar morphs elements by matching top-level elements based on their ID.
+
+The @racket[#:mode] parameter controls how elements are patched. Use the named constants:
+@racket[patch-mode-outer] (morph entire element, default), @racket[patch-mode-inner]
+(morph inner HTML), @racket[patch-mode-replace] (replace entire element),
+@racket[patch-mode-prepend], @racket[patch-mode-append], @racket[patch-mode-before],
+@racket[patch-mode-after], and @racket[patch-mode-remove].
+When @racket[#f] or @racket[patch-mode-outer], the mode data line is omitted.
+
+@codeblock{
+(patch-elements sse "<div id=\"out\">hello</div>")
+(patch-elements sse "<svg>...</svg>" #:namespace element-namespace-svg)
+(patch-elements sse "<li>item</li>" #:selector "#list" #:mode patch-mode-append)
+}
+}
+
+@defproc[(patch-elements/xexpr [sse sse?]
+                                [xexpr xexpr/c]
+                                [#:selector selector (or/c string? #f) #f]
+                                [#:mode mode element-patch-mode/c #f]
+                                [#:namespace namespace element-namespace/c #f]
+                                [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
+                                [#:event-id event-id (or/c string? #f) #f]
+                                [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+Like @racket[patch-elements], but accepts an x-expression instead of a raw HTML string.
+Converts @racket[xexpr] via @racket[xexpr->string] and delegates to @racket[patch-elements].
+
+@codeblock{
+(patch-elements/xexpr sse '(div ((id "out")) "hello"))
+(patch-elements/xexpr sse '(svg "...") #:namespace element-namespace-svg)
+(patch-elements/xexpr sse
+                      '(li "item")
+                      #:selector "#list"
+                      #:mode patch-mode-append)
+}
+}
+
+@defproc[(remove-elements [sse sse?]
+                           [selector string?]
+                           [#:event-id event-id (or/c string? #f) #f]
+                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+Removes elements from the DOM by CSS selector. Convenience function that calls
+@racket[patch-elements] with @racket[patch-mode-remove].
+}
+
+@defproc[(patch-signals [sse sse?]
+                         [signals (or/c string? jsexpr?)]
+                         [#:event-id event-id (or/c string? #f) #f]
+                         [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
+                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-signals"]{@tt{datastar-patch-signals}}
+SSE event that patches signals into the existing signals on the page.
+The @racket[#:only-if-missing] option determines whether to update each signal only if a signal with that name does not yet exist.
+}
+
+@defproc[(execute-script [sse sse?]
+                          [script string?]
+                          [#:auto-remove auto-remove boolean? #t]
+                          [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
+                          [#:event-id event-id (or/c string? #f) #f]
+                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+Sends a @link["https://data-star.dev/reference/sse_events#datastar-execute-script"]{@tt{datastar-execute-script}}
+SSE event that executes JavaScript in the browser by injecting a @tt{<script>} element. The script element is
+automatically removed after execution unless @racket[auto-remove] is @racket[#f].
+}
+
+@defproc[(redirect [sse sse?]
+                    [location string?]) void?]{
+Redirects the browser to a new location using @tt{window.location}. This is a convenience
+function that calls @racket[execute-script].
+}
+
+@defproc[(console-log [sse sse?]
+                       [message string?]) void?]{
+Logs a message to the browser console via @tt{console.log}. The message is automatically
+quoted as a JavaScript string. This is a convenience function that calls @racket[execute-script].
+}
+
+@defproc[(console-error [sse sse?]
+                         [message string?]) void?]{
+Same as @racket[console-log] but uses @tt{console.error}.
+}
+
+@defproc[(replace-url [sse sse?]
+                       [location string?]) void?]{
+Updates the browser URL without navigating, using @tt{window.history.replaceState}.
+This is a convenience function that calls @racket[execute-script].
+}
+
+@subsection{Patch Modes}
+
+Named constants for the @racket[#:mode] parameter of @racket[patch-elements].
+Values are symbols (@racket['outer], @racket['inner], etc.).
+
+@defthing[patch-mode-outer symbol?]{Morph the entire element (default).}
+@defthing[patch-mode-inner symbol?]{Replace inner HTML.}
+@defthing[patch-mode-remove symbol?]{Remove the element.}
+@defthing[patch-mode-replace symbol?]{Replace the element without morphing.}
+@defthing[patch-mode-prepend symbol?]{Prepend inside the element.}
+@defthing[patch-mode-append symbol?]{Append inside the element.}
+@defthing[patch-mode-before symbol?]{Insert before the element.}
+@defthing[patch-mode-after symbol?]{Insert after the element.}
+
+@defthing[element-patch-mode/c flat-contract?]{
+Contract for valid patch modes: any of the @racket[patch-mode-*] constants or @racket[#f].
+}
+
+@subsection{Element Namespaces}
+
+Named constants for the @racket[#:namespace] parameter of @racket[patch-elements].
+Values are symbols (@racket['html], @racket['svg], @racket['mathml]).
+
+@defthing[element-namespace-html symbol?]{HTML namespace (default).}
+@defthing[element-namespace-svg symbol?]{SVG namespace.}
+@defthing[element-namespace-mathml symbol?]{MathML namespace.}
+
+@defthing[element-namespace/c flat-contract?]{
+Contract for valid namespaces: any of the @racket[element-namespace-*] constants or @racket[#f].
+}
+
+@section[#:tag "compression"]{Compression}
+
+SSE output can be compressed on the wire via @emph{write profiles}. A write profile
+controls how SSE bytes are written to the underlying connection, allowing pluggable
+compression without changing the event-sending code. Pass a write profile to
+@racket[datastar-sse] via the @racket[#:write-profile] keyword argument. If the client
+does not advertise support for the profile's content encoding in @tt{Accept-Encoding},
+the SDK automatically falls back to @racket[basic-write-profile].
+
+@subsection[#:tag "write-profiles"]{Write Profiles}
+
+@defproc[(write-profile? [v any/c]) boolean?]{
+Returns @racket[#t] if @racket[v] is a write profile.
+}
+
+@defthing[basic-write-profile write-profile?]{
+The default write profile. Writes SSE events uncompressed with no transformation.
+}
+
+@subsection{Brotli}
+
+@defmodule[datastar-brotli]
+
+The @racketmodname[datastar-brotli] package provides
+@link["https://en.wikipedia.org/wiki/Brotli"]{Brotli} compression support. Install it
+separately (@tt{raco pkg install datastar-brotli}) and pass the resulting write profile
+to @racket[datastar-sse]:
+
+@codeblock{
+(require datastar
+         datastar-brotli)
+
+(define brotli-profile (make-brotli-write-profile))
+
+(define (handler req)
+  (datastar-sse
+   req
+   (lambda (sse)
+     (patch-elements/xexpr sse '(div ((id "out")) "Hello, compressed!")))
+   #:write-profile brotli-profile))
+}
+
+@defproc[(make-brotli-write-profile [#:quality quality (integer-in 0 11) 5]
+                                    [#:window window (integer-in 10 24) 22]
+                                    [#:mode mode mode/c BROTLI_MODE_TEXT]) write-profile?]{
+Creates a @racket[write-profile?] that compresses SSE output with Brotli.
+
+@itemlist[
+  @item{@racket[quality] --- Compression level from @racket[0] (fastest) to @racket[11]
+        (smallest). Default @racket[5] is a reasonable balance for streaming.}
+  @item{@racket[window] --- Sliding window size from @racket[10] to @racket[24].
+        Larger values may improve compression at the cost of memory.}
+  @item{@racket[mode] --- One of @racket[BROTLI_MODE_GENERIC], @racket[BROTLI_MODE_TEXT],
+        or @racket[BROTLI_MODE_FONT]. Use @racket[BROTLI_MODE_TEXT] (the default) for
+        SSE, which is UTF-8 text.}
+]
+}
+
+@defthing[BROTLI_MODE_GENERIC mode/c]{
+Generic mode, no assumptions about content type. Re-exported from @racketmodname[libbrotli].
+}
+
+@defthing[BROTLI_MODE_TEXT mode/c]{
+Text mode, optimized for UTF-8 input. Re-exported from @racketmodname[libbrotli].
+}
+
+@defthing[BROTLI_MODE_FONT mode/c]{
+Font mode, optimized for WOFF 2.0 fonts. Re-exported from @racketmodname[libbrotli].
+}
+
+@section{Frontend Helpers}
+
+Convenience functions for generating Datastar
+@link["https://data-star.dev/reference/attributes"]{HTML attributes} and
+@link["https://data-star.dev/reference/actions#backend-actions"]{backend action} strings
+in x-expression templates. These are not part of the core SDK protocol; they provide
+Racket-friendly sugar over raw @tt{data-*} attribute strings.
+
+@subsection{Attribute Helpers}
 
 Functions for generating Datastar @tt{data-*}
 @link["https://data-star.dev/reference/attributes"]{HTML attributes} as x-expression
@@ -573,7 +902,7 @@ attribute that binds the text content of an element to @racket[expression].
 }
 
 
-@subsection{Pro Attributes}
+@subsubsection{Pro Attributes}
 
 @defproc[(data-custom-validity [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-custom-validity"]{@tt{data-custom-validity}}
@@ -692,7 +1021,7 @@ Datastar Pro attribute.
 ]
 }
 
-@section{Action Helpers}
+@subsection{Action Helpers}
 
 Convenience functions for generating Datastar
 @link["https://data-star.dev/reference/actions#backend-actions"]{backend action} attribute strings.
@@ -735,299 +1064,7 @@ Returns a @tt{@"@"patch} action string.
 Returns a @tt{@"@"delete} action string.
 }
 
-@section{Reading Requests}
-
-@defproc[(read-signals [request request?]) jsexpr?]{
-Parses incoming signal data from the browser. For GET requests, extracts data from the
-@tt{datastar} query parameter. For other methods, parses the request body as JSON. This is
-a standalone function that operates on the request and does not require an SSE generator.
-}
-
-@defproc[(datastar-request? [request request?]) boolean?]{
-Returns @racket[#t] if the request has a @tt{Datastar-Request: true} header, meaning
-it came from a Datastar action. The check is case-insensitive.
-}
-
-@section{SSE Events}
-
-Functions for creating and sending
-@link["https://data-star.dev/reference/sse_events"]{Datastar SSE events}. See the
-@link["https://data-star.dev/reference/sse_events"]{Datastar SSE events reference} for
-full details on event types and their data lines.
-
-@subsection{SSE Generator}
-
-@defproc[(datastar-sse [request request?]
-                       [on-open (-> sse? any)]
-                       [#:on-close on-close (or/c (-> sse? any) #f) #f]
-                       [#:write-profile write-profile write-profile? basic-write-profile]) response?]{
-Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a fresh
-@racket[sse?] generator that can be used to send events to the client. When @racket[on-open]
-returns (or raises an exception), the connection is closed and @racket[on-close] is called
-if provided.
-
-When the server is set up with @racket[datastar-tcp@], client disconnections are detected
-immediately: the SDK monitors the TCP input port and interrupts @racket[on-open] as soon as
-the client goes away, ensuring prompt cleanup via @racket[on-close].
-
-The @racket[write-profile] controls how SSE bytes are written to the connection. The default
-@racket[basic-write-profile] writes uncompressed. Custom write profiles can add compression
-(see @secref["write-profiles"]). If the client does not advertise support for the profile's
-content encoding in @tt{Accept-Encoding}, the SDK automatically falls back to
-@racket[basic-write-profile].
-
-@bold{Important:} When using @racket[serve], the following settings are required for SSE to
-work correctly:
-
-@itemlist[
-  @item{@racket[#:tcp@] should be @racket[datastar-tcp@] for instant disconnect detection.
-  Without this, disconnections are only detected on the next failed write, which means
-  @racket[on-close] may not fire promptly if the handler is blocked waiting for data.}
-
-  @item{@racket[#:connection-close?] must be @racket[#t]. Without this, the web server uses
-  chunked transfer encoding with an internal pipe that silently absorbs writes to dead
-  connections, preventing disconnect detection from working and @racket[on-close] from firing.}
-
-  @item{@racket[#:safety-limits] must disable both @racket[#:response-timeout] and
-  @racket[#:response-send-timeout] (set to @racket[+inf.0]). The defaults of 60 seconds
-  will kill idle SSE connections. @racket[#:response-timeout] limits the total time a handler
-  can run, and @racket[#:response-send-timeout] limits the time between successive writes.
-  Both must be infinite for long-lived SSE connections.}
-]
-}
-
-@defproc[(sse? [v any/c]) boolean?]{
-Returns @racket[#t] if @racket[v] is an SSE generator created by @racket[datastar-sse].
-}
-
-@defproc[(close-sse [sse sse?]) void?]{
-Explicitly closes the SSE connection. This is called automatically when the @racket[on-open]
-callback returns, but can be called earlier if needed. Safe to call multiple times.
-}
-
-@defproc[(sse-closed? [sse sse?]) boolean?]{
-Returns @racket[#t] if the SSE connection is closed, either because @racket[close-sse]
-was called or because the underlying output port was closed (e.g., client disconnected).
-This is a non-destructive check that does not attempt to write to the connection.
-}
-
-@defproc[(call-with-sse-lock [sse sse?] [thunk (-> any)]) any]{
-Holds the SSE generator's lock for the duration of @racket[thunk], preventing
-concurrent sending of SSE events. This ensures that multiple sends are delivered
-as an atomic batch without events from other threads interleaving.
-
-This is only needed when multiple threads send through the same @racket[sse?]
-generator. If each generator is used by a single thread (the common case),
-individual sends are already thread-safe and this is not needed.
-
-The lock is re-entrant: all send functions (@racket[patch-elements],
-@racket[patch-signals], etc.) use @racket[call-with-sse-lock]
-internally, so calling them inside a locked region does not deadlock.
-
-@codeblock{
-(call-with-sse-lock sse
-                    (lambda ()
-                      (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
-                      (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
-                      (patch-signals sse (hash 'status "updated"))))
-}
-
-If an exception is raised inside @racket[thunk], the lock is released via
-@racket[dynamic-wind], so subsequent sends can still proceed.
-}
-
-@defform[(with-sse-lock sse body ...)]{
-Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock].
-
-@codeblock{
-(with-sse-lock sse
-               (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
-               (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
-               (patch-signals sse (hash 'status "updated")))
-}
-}
-
-@subsection{Sending Events}
-
-All send functions take an @racket[sse?] generator as their first argument. If the
-connection is closed or an I/O error occurs, an exception is raised. Within
-@racket[datastar-sse], these exceptions are caught automatically, triggering cleanup
-via @racket[on-close]. Sends are thread-safe: multiple threads can send events through
-the same generator and delivery order is serialized. If multiple threads share a
-single generator, use @racket[with-sse-lock] to send a group of events without
-interleaving.
-
-@defproc[(patch-elements [sse sse?]
-                          [elements (or/c string? #f)]
-                          [#:selector selector (or/c string? #f) #f]
-                          [#:mode mode element-patch-mode/c #f]
-                          [#:namespace namespace element-namespace/c #f]
-                          [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
-                          [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-elements"]{@tt{datastar-patch-elements}}
-SSE event that patches one or more elements in the DOM. By default, Datastar morphs elements by matching top-level elements based on their ID.
-
-The @racket[#:mode] parameter controls how elements are patched. Use the named constants:
-@racket[patch-mode-outer] (morph entire element, default), @racket[patch-mode-inner]
-(morph inner HTML), @racket[patch-mode-replace] (replace entire element),
-@racket[patch-mode-prepend], @racket[patch-mode-append], @racket[patch-mode-before],
-@racket[patch-mode-after], and @racket[patch-mode-remove].
-When @racket[#f] or @racket[patch-mode-outer], the mode data line is omitted.
-
-@codeblock{
-(patch-elements sse "<div id=\"out\">hello</div>")
-(patch-elements sse "<svg>...</svg>" #:namespace element-namespace-svg)
-(patch-elements sse "<li>item</li>" #:selector "#list" #:mode patch-mode-append)
-}
-}
-
-@defproc[(patch-elements/xexpr [sse sse?]
-                                [xexpr xexpr/c]
-                                [#:selector selector (or/c string? #f) #f]
-                                [#:mode mode element-patch-mode/c #f]
-                                [#:namespace namespace element-namespace/c #f]
-                                [#:use-view-transitions use-view-transitions (or/c boolean? #f) #f]
-                                [#:event-id event-id (or/c string? #f) #f]
-                                [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Like @racket[patch-elements], but accepts an x-expression instead of a raw HTML string.
-Converts @racket[xexpr] via @racket[xexpr->string] and delegates to @racket[patch-elements].
-
-@codeblock{
-(patch-elements/xexpr sse '(div ((id "out")) "hello"))
-(patch-elements/xexpr sse '(svg "...") #:namespace element-namespace-svg)
-(patch-elements/xexpr sse
-                      '(li "item")
-                      #:selector "#list"
-                      #:mode patch-mode-append)
-}
-}
-
-@defproc[(remove-elements [sse sse?]
-                           [selector string?]
-                           [#:event-id event-id (or/c string? #f) #f]
-                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Removes elements from the DOM by CSS selector. Convenience function that calls
-@racket[patch-elements] with @racket[patch-mode-remove].
-}
-
-@defproc[(patch-signals [sse sse?]
-                         [signals (or/c string? jsexpr?)]
-                         [#:event-id event-id (or/c string? #f) #f]
-                         [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
-                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-signals"]{@tt{datastar-patch-signals}}
-SSE event that patches signals into the existing signals on the page.
-The @racket[#:only-if-missing] option determines whether to update each signal only if a signal with that name does not yet exist.
-}
-
-@defproc[(execute-script [sse sse?]
-                          [script string?]
-                          [#:auto-remove auto-remove boolean? #t]
-                          [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
-                          [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
-Sends a @link["https://data-star.dev/reference/sse_events#datastar-execute-script"]{@tt{datastar-execute-script}}
-SSE event that executes JavaScript in the browser by injecting a @tt{<script>} element. The script element is
-automatically removed after execution unless @racket[auto-remove] is @racket[#f].
-}
-
-@defproc[(redirect [sse sse?]
-                    [location string?]) void?]{
-Redirects the browser to a new location using @tt{window.location}. This is a convenience
-function that calls @racket[execute-script].
-}
-
-@defproc[(console-log [sse sse?]
-                       [message string?]) void?]{
-Logs a message to the browser console via @tt{console.log}. The message is automatically
-quoted as a JavaScript string. This is a convenience function that calls @racket[execute-script].
-}
-
-@defproc[(console-error [sse sse?]
-                         [message string?]) void?]{
-Same as @racket[console-log] but uses @tt{console.error}.
-}
-
-@defproc[(replace-url [sse sse?]
-                       [location string?]) void?]{
-Updates the browser URL without navigating, using @tt{window.history.replaceState}.
-This is a convenience function that calls @racket[execute-script].
-}
-
-@section[#:tag "compression"]{Compression}
-
-SSE output can be compressed on the wire via @emph{write profiles}. A write profile
-controls how SSE bytes are written to the underlying connection, allowing pluggable
-compression without changing the event-sending code. Pass a write profile to
-@racket[datastar-sse] via the @racket[#:write-profile] keyword argument. If the client
-does not advertise support for the profile's content encoding in @tt{Accept-Encoding},
-the SDK automatically falls back to @racket[basic-write-profile].
-
-@subsection[#:tag "write-profiles"]{Write Profiles}
-
-@defproc[(write-profile? [v any/c]) boolean?]{
-Returns @racket[#t] if @racket[v] is a write profile.
-}
-
-@defthing[basic-write-profile write-profile?]{
-The default write profile. Writes SSE events uncompressed with no transformation.
-}
-
-@subsection{Brotli}
-
-@defmodule[datastar-brotli]
-
-The @racketmodname[datastar-brotli] package provides
-@link["https://en.wikipedia.org/wiki/Brotli"]{Brotli} compression support. Install it
-separately (@tt{raco pkg install datastar-brotli}) and pass the resulting write profile
-to @racket[datastar-sse]:
-
-@codeblock{
-(require datastar
-         datastar-brotli)
-
-(define brotli-profile (make-brotli-write-profile))
-
-(define (handler req)
-  (datastar-sse
-   req
-   (lambda (sse)
-     (patch-elements/xexpr sse '(div ((id "out")) "Hello, compressed!")))
-   #:write-profile brotli-profile))
-}
-
-@defproc[(make-brotli-write-profile [#:quality quality (integer-in 0 11) 5]
-                                    [#:window window (integer-in 10 24) 22]
-                                    [#:mode mode mode/c BROTLI_MODE_TEXT]) write-profile?]{
-Creates a @racket[write-profile?] that compresses SSE output with Brotli.
-
-@itemlist[
-  @item{@racket[quality] --- Compression level from @racket[0] (fastest) to @racket[11]
-        (smallest). Default @racket[5] is a reasonable balance for streaming.}
-  @item{@racket[window] --- Sliding window size from @racket[10] to @racket[24].
-        Larger values may improve compression at the cost of memory.}
-  @item{@racket[mode] --- One of @racket[BROTLI_MODE_GENERIC], @racket[BROTLI_MODE_TEXT],
-        or @racket[BROTLI_MODE_FONT]. Use @racket[BROTLI_MODE_TEXT] (the default) for
-        SSE, which is UTF-8 text.}
-]
-}
-
-@defthing[BROTLI_MODE_GENERIC mode/c]{
-Generic mode, no assumptions about content type. Re-exported from @racketmodname[libbrotli].
-}
-
-@defthing[BROTLI_MODE_TEXT mode/c]{
-Text mode, optimized for UTF-8 input. Re-exported from @racketmodname[libbrotli].
-}
-
-@defthing[BROTLI_MODE_FONT mode/c]{
-Font mode, optimized for WOFF 2.0 fonts. Re-exported from @racketmodname[libbrotli].
-}
-
-@section{Constants}
-
-@subsection{CDN URLs}
+@subsection{CDN}
 
 @defthing[datastar-cdn-url string?]{
 URL for the Datastar JavaScript bundle on the jsDelivr CDN, derived from
@@ -1045,37 +1082,6 @@ URL for the source map corresponding to @racket[datastar-cdn-url].
 @defthing[datastar-version string?]{
 The Datastar version string (e.g., @racket["1.0.0-RC.8"]). Used to derive
 @racket[datastar-cdn-url] and @racket[datastar-cdn-map-url].
-}
-
-@subsection{Patch Modes}
-
-Named constants for the @racket[#:mode] parameter of @racket[patch-elements].
-Values are symbols (@racket['outer], @racket['inner], etc.).
-
-@defthing[patch-mode-outer symbol?]{Morph the entire element (default).}
-@defthing[patch-mode-inner symbol?]{Replace inner HTML.}
-@defthing[patch-mode-remove symbol?]{Remove the element.}
-@defthing[patch-mode-replace symbol?]{Replace the element without morphing.}
-@defthing[patch-mode-prepend symbol?]{Prepend inside the element.}
-@defthing[patch-mode-append symbol?]{Append inside the element.}
-@defthing[patch-mode-before symbol?]{Insert before the element.}
-@defthing[patch-mode-after symbol?]{Insert after the element.}
-
-@defthing[element-patch-mode/c flat-contract?]{
-Contract for valid patch modes: any of the @racket[patch-mode-*] constants or @racket[#f].
-}
-
-@subsection{Element Namespaces}
-
-Named constants for the @racket[#:namespace] parameter of @racket[patch-elements].
-Values are symbols (@racket['html], @racket['svg], @racket['mathml]).
-
-@defthing[element-namespace-html symbol?]{HTML namespace (default).}
-@defthing[element-namespace-svg symbol?]{SVG namespace.}
-@defthing[element-namespace-mathml symbol?]{MathML namespace.}
-
-@defthing[element-namespace/c flat-contract?]{
-Contract for valid namespaces: any of the @racket[element-namespace-*] constants or @racket[#f].
 }
 
 @section{Testing Utilities}
