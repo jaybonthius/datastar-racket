@@ -6,7 +6,15 @@
 
 (define deps '("base"))
 
-(define build-deps '("datastar-lib" "scribble-lib" "racket-doc" "web-server-doc"))
+(define build-deps '("datastar-lib"
+                     "net-doc"
+                     "net-lib"
+                     "rackunit-doc"
+                     "rackunit-lib"
+                     "scribble-lib"
+                     "racket-doc"
+                     "web-server-doc"
+                     "web-server-lib"))
 
 (define update-implies '("datastar-lib"))
 
