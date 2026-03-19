@@ -432,9 +432,6 @@
 (test-case "ds:init with sse-get"
   (check-equal? (ds:init (sse-get "/events")) '(data-init "@get('/events')")))
 
-(test-case "ds:init with once"
-  (check-equal? (ds:init "fn()" #:once #t) '(data-init__once "fn()")))
-
 (test-case "ds:init with delay"
   (check-equal? (ds:init "$count = 1" #:delay "500ms")
                 (list (string->symbol "data-init__delay.500ms") "$count = 1"))
@@ -443,12 +440,6 @@
 
 (test-case "ds:init with viewtransition"
   (check-equal? (ds:init "fn()" #:viewtransition #t) '(data-init__viewtransition "fn()")))
-
-(test-case "ds:init with once + viewtransition"
-  (check-equal? (ds:init "fn()" #:once #t #:viewtransition #t)
-                '(data-init__once__viewtransition "fn()"))
-  (check-equal? (xexpr->string `(div (,(ds:init "fn()" #:once #t #:viewtransition #t)) ""))
-                "<div data-init__once__viewtransition=\"fn()\"></div>"))
 
 (test-case "ds:init with delay + viewtransition"
   (check-equal? (ds:init "fn()" #:delay "500ms" #:viewtransition #t)

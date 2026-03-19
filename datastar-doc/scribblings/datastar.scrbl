@@ -183,7 +183,7 @@ If you want to use a prefix other than @tt{ds:}, use @racket[prefix-in]:
 @defproc[(ds:attr [key-or-hash (or/c symbol? string? hash?)]
                   [value-or-unused any/c #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-attr"]{@tt{data-attr}}
-attribute that sets HTML attribute values based on expressions and keeps them in sync.
+attribute that sets the value of any HTML attribute to an expression, and keeps it in sync.
 
 In the keyed form, @racket[key-or-hash] is the attribute name and
 @racket[value-or-unused] is the expression.
@@ -205,7 +205,7 @@ Hash form:
 
 @defproc[(ds:bind [signal string?] [value string? ""]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-bind"]{@tt{data-bind}}
-attribute that sets up two-way data binding between a signal and an element's value.
+attribute that creates a signal (if one doesn't already exist) and sets up two-way data binding between it and an element's value.
 
 The @racket[signal] is the signal name. The optional @racket[value] is rarely needed
 since the element's own value is used.
@@ -224,7 +224,7 @@ since the element's own value is used.
 @defproc[(ds:class [key-or-hash (or/c symbol? string? hash?)]
                    [value-or-unused any/c #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-class"]{@tt{data-class}}
-attribute that adds or removes CSS classes based on expressions.
+attribute that adds or removes a class to or from an element based on an expression.
 
 In the keyed form, @racket[key-or-hash] is the class name and @racket[value-or-unused]
 is a boolean expression.
@@ -248,7 +248,7 @@ Hash form:
 @defproc[(ds:computed [key-or-hash (or/c symbol? string? hash?)]
                       [value-or-unused any/c #f]) (or/c list? (listof list?))]{
 Generates a @link["https://data-star.dev/reference/attributes#data-computed"]{@tt{data-computed}}
-attribute that creates read-only computed signals derived from reactive expressions.
+attribute that creates a signal that is computed based on an expression. The computed signal is read-only, and its value is automatically updated when any signals in the expression are updated.
 
 In the keyed form, @racket[key-or-hash] is the signal name and @racket[value-or-unused]
 is the expression.
@@ -272,7 +272,7 @@ Hash form (returns list of pairs, use @racket[,@"@"]):
 
 @defproc[(ds:effect [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-effect"]{@tt{data-effect}}
-attribute that runs @racket[expression] reactively whenever any signals it references change.
+attribute that executes @racket[expression] on page load and whenever any signals in the expression change. This is useful for performing side effects.
 
 @examples[#:eval ev #:label #f
 `(div (,(ds:effect "$total = $price * $quantity")))
@@ -281,7 +281,7 @@ attribute that runs @racket[expression] reactively whenever any signals it refer
 
 @defproc[(ds:ignore [#:self self boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-ignore"]{@tt{data-ignore}}
-attribute that tells Datastar to skip processing this element and its descendants.
+attribute that tells Datastar to ignore this element and its descendants when walking the DOM.
 
 When @racket[#:self] is @racket[#t], only the element itself is ignored; its children
 are still processed.
@@ -307,7 +307,7 @@ when morphing. Takes no arguments.
 
 @defproc[(ds:indicator [signal string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-indicator"]{@tt{data-indicator}}
-attribute that creates a signal set to @tt{true} while a fetch request is in flight.
+attribute that creates a signal and sets its value to @tt{true} while a fetch request is in flight, otherwise @tt{false}.
 
 @examples[#:eval ev #:label #f
 `(button (,(ds:indicator "loading") ,(ds:on "click" (sse-get "/data"))) "Fetch")
@@ -319,18 +319,13 @@ attribute that creates a signal set to @tt{true} while a fetch request is in fli
 }
 
 @defproc[(ds:init [expression string?]
-                  [#:once once boolean? #f]
                   [#:delay delay (or/c string? number? #f) #f]
                   [#:viewtransition viewtransition boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-init"]{@tt{data-init}}
-attribute that runs @racket[expression] when the attribute is first processed.
+attribute that runs @racket[expression] when the attribute is initialized. This can happen on page load, when an element is patched into the DOM, and any time the attribute is modified.
 
 @examples[#:eval ev #:label #f
 (ds:init (sse-get "/events"))
-]
-
-@examples[#:eval ev #:label #f
-(ds:init "$count = 0" #:once #t)
 ]
 }
 
@@ -338,8 +333,8 @@ attribute that runs @racket[expression] when the attribute is first processed.
                           [#:exclude exclude (or/c string? #f) #f]
                           [#:terse terse boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-json-signals"]{@tt{data-json-signals}}
-attribute that sets the text content of an element to a reactive JSON representation of
-the current signals. Useful for debugging.
+attribute that sets the text content of an element to a reactive JSON stringified version of
+signals. Useful for troubleshooting.
 
 @examples[#:eval ev #:label #f
 `(pre (,(ds:json-signals)))
@@ -369,7 +364,7 @@ the current signals. Useful for debugging.
                 [#:delay delay (or/c string? number? #f) #f]
                 [#:viewtransition viewtransition boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-on"]{@tt{data-on}}
-attribute that attaches an event listener running @racket[expression] when @racket[event]
+attribute that attaches an event listener to an element, executing @racket[expression] whenever @racket[event]
 is triggered. Keyword arguments correspond to Datastar modifiers.
 
 @examples[#:eval ev #:label #f
@@ -417,7 +412,8 @@ Keyword arguments correspond to Datastar modifiers.
                          [#:duration-leading duration-leading boolean? #f]
                          [#:viewtransition viewtransition boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-on-interval"]{@tt{data-on-interval}}
-attribute that runs @racket[expression] at a regular interval (default one second).
+attribute that runs @racket[expression] at a regular interval. The interval duration defaults
+to one second and can be modified using @racket[#:duration].
 Keyword arguments correspond to Datastar modifiers.
 
 @examples[#:eval ev #:label #f
@@ -440,7 +436,7 @@ Keyword arguments correspond to Datastar modifiers.
                              [#:throttle-trailing throttle-trailing boolean? #f]
                              [#:delay delay (or/c string? number? #f) #f]) (or/c list? (listof list?))]{
 Generates a @link["https://data-star.dev/reference/attributes#data-on-signal-patch"]{@tt{data-on-signal-patch}}
-attribute that runs @racket[expression] whenever signals are patched.
+attribute that runs @racket[expression] whenever any signals are patched.
 
 When @racket[#:include] or @racket[#:exclude] are provided, a separate
 @tt{data-on-signal-patch-filter} attribute is generated alongside the main attribute.
@@ -464,7 +460,7 @@ With filter (returns list of two pairs, use @racket[,@"@"]):
 
 @defproc[(ds:preserve-attrs [attrs (or/c string? (listof string?))]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-preserve-attr"]{@tt{data-preserve-attr}}
-attribute that preserves specified attributes when Datastar morphs DOM elements.
+attribute that preserves the value of specified attributes when morphing DOM elements.
 
 @racket[attrs] can be a single attribute name string or a list of attribute name strings.
 
@@ -486,7 +482,7 @@ Preserve multiple attributes:
 
 @defproc[(ds:ref [signal string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-ref"]{@tt{data-ref}}
-attribute that creates a signal referencing the DOM element.
+attribute that creates a new signal that is a reference to the element on which the attribute is placed.
 
 @examples[#:eval ev #:label #f
 `(div (,(ds:ref "myDiv")))
@@ -507,7 +503,7 @@ to @tt{true} or @tt{false}.
                      [value-or-unused any/c #f]
                      [#:ifmissing ifmissing boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-signals"]{@tt{data-signals}}
-attribute that patches one or more signals into the signal store.
+attribute that patches (adds, updates or removes) one or more signals into the existing signals.
 
 In the keyed form, @racket[key-or-hash] is a symbol or string signal name and
 @racket[value-or-unused] is the signal's initial value as a string expression.
@@ -545,7 +541,7 @@ Nested signals:
 @defproc[(ds:style [key-or-hash (or/c symbol? string? hash?)]
                    [value-or-unused any/c #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-style"]{@tt{data-style}}
-attribute that sets inline CSS style properties based on expressions.
+attribute that sets the value of inline CSS styles on an element based on an expression, and keeps them in sync.
 
 In the keyed form, @racket[key-or-hash] is the CSS property name and
 @racket[value-or-unused] is the expression.
@@ -570,7 +566,7 @@ Hash form:
 
 @defproc[(ds:text [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-text"]{@tt{data-text}}
-attribute that sets the text content of an element to the result of @racket[expression].
+attribute that binds the text content of an element to @racket[expression].
 
 @examples[#:eval ev #:label #f
 `(span (,(ds:text "$count")))
@@ -582,8 +578,9 @@ attribute that sets the text content of an element to the result of @racket[expr
 
 @defproc[(ds:custom-validity [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-custom-validity"]{@tt{data-custom-validity}}
-attribute for custom form validation. An empty string means valid; a non-empty string is the
-error message. This is a Datastar Pro attribute.
+attribute for custom form validation. The expression must evaluate to a string: an empty string
+means the input is valid; a non-empty string is used as the validation error message. This is a
+Datastar Pro attribute.
 
 @examples[#:eval ev #:label #f
 `(input (,(ds:bind "password")
@@ -594,8 +591,8 @@ error message. This is a Datastar Pro attribute.
 
 @defproc[(ds:match-media [signal string?] [query string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-match-media"]{@tt{data-match-media}}
-attribute that creates a signal tracking whether a media query matches. This is a Datastar
-Pro attribute.
+attribute that sets a signal to whether a media query matches, and keeps it in sync whenever
+the query changes. This is a Datastar Pro attribute.
 
 @examples[#:eval ev #:label #f
 `(div (,(ds:match-media "is-dark" "'prefers-color-scheme: dark'")))
@@ -629,7 +626,8 @@ This is a Datastar Pro attribute.
                      [#:session session boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-persist"]{@tt{data-persist}}
 attribute that persists signals in @tt{localStorage} (or @tt{sessionStorage} with
-@racket[#:session]). This is a Datastar Pro attribute.
+@racket[#:session]). Useful for storing signal values between page loads. This is a Datastar
+Pro attribute.
 
 @examples[#:eval ev #:label #f
 `(div (,(ds:persist)))
@@ -645,8 +643,8 @@ attribute that persists signals in @tt{localStorage} (or @tt{sessionStorage} wit
                           [#:filter filter boolean? #f]
                           [#:history history boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-query-string"]{@tt{data-query-string}}
-attribute that syncs signal values to and from URL query string parameters. This is a
-Datastar Pro attribute.
+attribute that syncs query string parameters to signal values on page load, and syncs signal
+values to query string parameters on change. This is a Datastar Pro attribute.
 
 @examples[#:eval ev #:label #f
 `(div (,(ds:query-string #:filter #t #:history #t)))
@@ -655,7 +653,8 @@ Datastar Pro attribute.
 
 @defproc[(ds:replace-url [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-replace-url"]{@tt{data-replace-url}}
-attribute that replaces the browser URL without reloading. This is a Datastar Pro attribute.
+attribute that replaces the URL in the browser without reloading the page. The value can be
+a relative or absolute URL. This is a Datastar Pro attribute.
 
 @examples[#:eval ev #:label #f
 `(div (,(ds:replace-url "`/page${$page}`")))
@@ -675,9 +674,9 @@ attribute that replaces the browser URL without reloading. This is a Datastar Pr
                               [#:vnearest vnearest boolean? #f]
                               [#:focus focus boolean? #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-scroll-into-view"]{@tt{data-scroll-into-view}}
-attribute that scrolls the element into view. Keyword arguments correspond to Datastar
-modifiers for scrolling behavior, horizontal/vertical alignment, and focus. This is a
-Datastar Pro attribute.
+attribute that scrolls the element into view. Useful when updating the DOM from the backend
+and you want to scroll to new content. Keyword arguments correspond to Datastar modifiers for
+scrolling behavior, horizontal/vertical alignment, and focus. This is a Datastar Pro attribute.
 
 @examples[#:eval ev #:label #f
 (ds:scroll-into-view #:smooth #t #:vcenter #t)
@@ -686,8 +685,8 @@ Datastar Pro attribute.
 
 @defproc[(ds:view-transition [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-view-transition"]{@tt{data-view-transition}}
-attribute that sets the @tt{view-transition-name} style attribute. This is a Datastar Pro
-attribute.
+attribute that sets the @tt{view-transition-name} style attribute explicitly. This is a
+Datastar Pro attribute.
 
 @examples[#:eval ev #:label #f
 `(div (,(ds:view-transition "$transitionName")))
@@ -868,7 +867,7 @@ interleaving.
                           [#:event-id event-id (or/c string? #f) #f]
                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
 Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-elements"]{@tt{datastar-patch-elements}}
-SSE event that patches HTML elements into the DOM.
+SSE event that patches one or more elements in the DOM. By default, Datastar morphs elements by matching top-level elements based on their ID.
 
 The @racket[#:mode] parameter controls how elements are patched. Use the named constants:
 @racket[patch-mode-outer] (morph entire element, default), @racket[patch-mode-inner]
@@ -919,8 +918,8 @@ Removes elements from the DOM by CSS selector. Convenience function that calls
                          [#:only-if-missing only-if-missing (or/c boolean? #f) #f]
                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
 Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-signals"]{@tt{datastar-patch-signals}}
-SSE event that patches signals into the signal store using RFC 7386 JSON Merge Patch
-semantics.
+SSE event that patches signals into the existing signals on the page.
+The @racket[#:only-if-missing] option determines whether to update each signal only if a signal with that name does not yet exist.
 }
 
 @defproc[(execute-script [sse sse?]
@@ -930,7 +929,7 @@ semantics.
                           [#:event-id event-id (or/c string? #f) #f]
                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
 Sends a @link["https://data-star.dev/reference/sse_events#datastar-execute-script"]{@tt{datastar-execute-script}}
-SSE event that executes JavaScript in the browser by injecting a script tag. The script is
+SSE event that executes JavaScript in the browser by injecting a @tt{<script>} element. The script element is
 automatically removed after execution unless @racket[auto-remove] is @racket[#f].
 }
 

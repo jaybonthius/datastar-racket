@@ -363,15 +363,11 @@
 
 ;; (ds:init expr [modifiers ...])
 (define (ds:init expression
-                 #:once [once #f]
                  #:delay (delay
                            #f)
                  #:viewtransition [viewtransition #f])
   (define mods
-    (append (if once
-                (list (list "once"))
-                '())
-            (delay-mod #:delay delay)
+    (append (delay-mod #:delay delay)
             (viewtransition-mod #:viewtransition viewtransition)))
   (define mod-str (build-modifier-string mods))
   (xattr (string-append "data-init" mod-str) expression))
