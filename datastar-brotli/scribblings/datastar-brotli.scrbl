@@ -29,9 +29,10 @@ does not advertise @tt{br} in its @tt{Accept-Encoding} header.
 
 (define (handler req)
   (datastar-sse req
-    (lambda (sse)
-      (patch-elements sse "<div id=\"out\">Hello, compressed!</div>"))
-    #:write-profile brotli-profile))
+                (lambda (sse)
+                  (patch-elements sse
+                                  "<div id=\"out\">Hello, compressed!</div>"))
+                #:write-profile brotli-profile))
 }
 
 @section{API}

@@ -49,35 +49,36 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
            (hash-ref signals-data 'count 0)))
 
   ; Create a Server-Sent Event response
-  (datastar-sse req
-    (lambda (sse)
-      ; Patch elements in the DOM
-      (patch-elements/xexpr sse
-        '(div ((id "output")) "Hello from Datastar!"))
+  (datastar-sse
+   req
+   (lambda (sse)
+     ; Patch elements in the DOM
+     (patch-elements/xexpr sse '(div ((id "output")) "Hello from Datastar!"))
 
-      ; Remove elements from the DOM
-      (remove-elements sse "#temporary-element")
+     ; Remove elements from the DOM
+     (remove-elements sse "#temporary-element")
 
-      ; Patch signals (update client-side state)
-      (patch-signals sse (hash 'message "Updated message"
-                                'count (+ (store-count current-store) 1)))
+     ; Patch signals (update client-side state)
+     (patch-signals sse
+                    (hash 'message
+                          "Updated message"
+                          'count
+                          (+ (store-count current-store) 1)))
 
-      ; Execute JavaScript in the browser
-      (execute-script sse "console.log(\"Hello from server!\")")
+     ; Execute JavaScript in the browser
+     (execute-script sse "console.log(\"Hello from server!\")")
 
-      ; Redirect the browser
-      (redirect sse "/new-page"))))
+     ; Redirect the browser
+     (redirect sse "/new-page"))))
 
 (define stop
-  (serve
-   #:dispatch (dispatch/servlet handler)
-    #:tcp@"@" datastar-tcp@"@"
-    #:listen-ip "127.0.0.1"
-    #:port 8000
-    #:connection-close? #t
-    #:safety-limits (make-safety-limits
-                     #:response-timeout +inf.0
-                     #:response-send-timeout +inf.0)))
+  (serve #:dispatch (dispatch/servlet handler)
+         #:tcp@"@" datastar-tcp@"@"
+         #:listen-ip "127.0.0.1"
+         #:port 8000
+         #:connection-close? #t
+         #:safety-limits (make-safety-limits #:response-timeout +inf.0
+                                             #:response-send-timeout +inf.0)))
 
 (with-handlers ([exn:break? (lambda (e) (stop))])
   (sync/enable-break never-evt))
@@ -90,12 +91,13 @@ If the client disconnects or a send fails, an exception is raised which
 @codeblock{
 (define (streaming-handler req)
   (datastar-sse req
-    (lambda (sse)
-      (for ([i (in-range 10)])
-        (patch-elements/xexpr sse
-          `(div ((id "counter")) ,(format "Count: ~a" i)))
-        (patch-signals sse (hash 'counter i))
-        (sleep 1)))))
+                (lambda (sse)
+                  (for ([i (in-range 10)])
+                    (patch-elements/xexpr sse
+                                          `(div ((id "counter"))
+                                                ,(format "Count: ~a" i)))
+                    (patch-signals sse (hash 'counter i))
+                    (sleep 1)))))
 }
 
 You can also use the @racket[#:on-close] callback for cleanup when the connection ends:
@@ -105,12 +107,10 @@ You can also use the @racket[#:on-close] callback for cleanup when the connectio
 
 (define (streaming-handler req)
   (datastar-sse req
-    (lambda (sse)
-      (set-add! connections sse)
-      (console-log sse "connected"))
-    #:on-close
-    (lambda (sse)
-      (set-remove! connections sse))))
+                (lambda (sse)
+                  (set-add! connections sse)
+                  (console-log sse "connected"))
+                #:on-close (lambda (sse) (set-remove! connections sse))))
 }
 
 For more examples, see the @link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory} on GitHub.
@@ -130,13 +130,11 @@ Use @racket[dispatch/servlet] from @racket[web-server/servlet-dispatch] to conve
 servlet into a dispatcher for @racket[serve]:
 
 @codeblock{
-(serve
- #:dispatch (dispatch/servlet handler)
- #:tcp@"@" datastar-tcp@"@"
- #:connection-close? #t
- #:safety-limits (make-safety-limits
-                  #:response-timeout +inf.0
-                  #:response-send-timeout +inf.0))
+(serve #:dispatch (dispatch/servlet handler)
+       #:tcp@"@" datastar-tcp@"@"
+       #:connection-close? #t
+       #:safety-limits (make-safety-limits #:response-timeout +inf.0
+                                           #:response-send-timeout +inf.0))
 }
 
 @racket[dispatch/servlet] composes with the standard web server dispatchers
@@ -202,7 +200,9 @@ since the element's own value is used.
 
 @codeblock{
 `(input (,(ds:bind "username")))
-`(select (,(ds:bind "choice")) (option ((value "a")) "A") (option ((value "b")) "B"))
+`(select (,(ds:bind "choice"))
+         (option ((value "a")) "A")
+         (option ((value "b")) "B"))
 }
 }
 
@@ -284,9 +284,7 @@ Generates a @link["https://data-star.dev/reference/attributes#data-indicator"]{@
 attribute that creates a signal set to @tt{true} while a fetch request is in flight.
 
 @codeblock{
-`(button (,(ds:indicator "loading")
-          ,(ds:on "click" (sse-get "/data")))
-         "Fetch")
+`(button (,(ds:indicator "loading") ,(ds:on "click" (sse-get "/data"))) "Fetch")
 `(div (,(ds:show "$loading")) "Loading...")
 }
 }
@@ -408,8 +406,8 @@ single pair. Use @racket[,@"@"] (unquote-splicing) to insert them.
 
 ;; With filter (returns list of two pairs, use ,@"@")
 `(div (,@"@"(ds:on-signal-patch "console.log('counter changed')"
-                                #:include "/^counter$/"
-                                #:debounce "300ms")))
+                             #:include "/^counter$/"
+                             #:debounce "300ms")))
 }
 }
 
@@ -421,12 +419,13 @@ attribute that preserves specified attributes when Datastar morphs DOM elements.
 
 @codeblock{
 ;; Preserve the "open" attribute on a <details> element
-`(details ((open "")) (,(ds:preserve-attrs "open"))
-          (summary "Title") "Content")
+`(details ((open "")) (,(ds:preserve-attrs "open")) (summary "Title") "Content")
 
 ;; Preserve multiple attributes
-`(details ((open "") (class "custom")) (,(ds:preserve-attrs '("open" "class")))
-          (summary "Title") "Content")
+`(details ((open "") (class "custom"))
+          (,(ds:preserve-attrs '("open" "class")))
+          (summary "Title")
+          "Content")
 }
 }
 
@@ -497,7 +496,9 @@ expressions.
 `(div (,(ds:style 'background-color "$dark ? 'black' : 'white'")))
 
 ;; Hash form
-`(div (,(ds:style (hash "display" "$hidden && 'none'" "color" "$error ? 'red' : 'black'"))))
+`(div
+  (,(ds:style
+     (hash "display" "$hidden && 'none'" "color" "$error ? 'red' : 'black'"))))
 }
 }
 
@@ -520,7 +521,8 @@ error message. This is a Datastar Pro attribute.
 
 @codeblock{
 `(input (,(ds:bind "password")
-         ,(ds:custom-validity "$password.length < 8 ? 'Must be 8+ characters' : ''")))
+         ,(ds:custom-validity
+           "$password.length < 8 ? 'Must be 8+ characters' : ''")))
 }
 }
 
@@ -631,7 +633,8 @@ Convenience functions for generating Datastar
 @codeblock{
 `(main ((id "main") ,(ds:init (sse-get "/events")))
        (form (,(ds:on "submit" (sse-post "/todo/create")))
-             (button (,(ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
+             (button (,(ds:on "click"
+                              (sse-post (format "/todo/delete/~a" tid))))
                      "Delete")))
 }
 
@@ -640,9 +643,9 @@ Returns a @tt{@"@"get} action string. When @racket[args] is provided, it is incl
 second argument.
 
 @codeblock{
-(sse-get "/events")           ; => "@"@"get('/events')"
+(sse-get "/events") ; => "@"@"get('/events')"
 (sse-get "/events" "{includeLocal: true}")
-                              ; => "@"@"get('/events', {includeLocal: true})"
+; => "@"@"get('/events', {includeLocal: true})"
 }
 }
 
@@ -753,10 +756,10 @@ internally, so calling them inside a locked region does not deadlock.
 
 @codeblock{
 (call-with-sse-lock sse
-  (lambda ()
-    (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
-    (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
-    (patch-signals sse (hash 'status "updated"))))
+                    (lambda ()
+                      (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
+                      (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
+                      (patch-signals sse (hash 'status "updated"))))
 }
 
 If an exception is raised inside @racket[thunk], the lock is released via
@@ -768,9 +771,9 @@ Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock
 
 @codeblock{
 (with-sse-lock sse
-  (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
-  (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
-  (patch-signals sse (hash 'status "updated")))
+               (patch-elements/xexpr sse '(div ((id "a")) "part 1"))
+               (patch-elements/xexpr sse '(div ((id "b")) "part 2"))
+               (patch-signals sse (hash 'status "updated")))
 }
 }
 
@@ -823,7 +826,10 @@ Converts @racket[xexpr] via @racket[xexpr->string] and delegates to @racket[patc
 @codeblock{
 (patch-elements/xexpr sse '(div ((id "out")) "hello"))
 (patch-elements/xexpr sse '(svg "...") #:namespace element-namespace-svg)
-(patch-elements/xexpr sse '(li "item") #:selector "#list" #:mode patch-mode-append)
+(patch-elements/xexpr sse
+                      '(li "item")
+                      #:selector "#list"
+                      #:mode patch-mode-append)
 }
 }
 
@@ -966,7 +972,8 @@ Returns two values: the generator, and a thunk that returns all the SSE text tha
 has been sent through it so far.
 
 @codeblock{
-(require datastar datastar/testing)
+(require datastar
+         datastar/testing)
 
 (define-values (sse get-output) (make-mock-sse))
 (patch-elements/xexpr sse '(div ((id "x")) "hi"))
@@ -983,14 +990,15 @@ The events are parsed from the same SSE text that would go over the wire, so the
 reflect exactly what a real client would receive.
 
 @codeblock{
-(require datastar datastar/testing)
+(require datastar
+         datastar/testing)
 
 (define-values (sse get-events) (make-recording-sse))
 (patch-elements/xexpr sse '(div "test"))
 (patch-signals sse (hash 'x 1))
 (define events (get-events))
-(length events)            ;; => 2
-(sse-event-type (first events))  ;; => "datastar-patch-elements"
+(length events) ;; => 2
+(sse-event-type (first events)) ;; => "datastar-patch-elements"
 (sse-event-type (second events)) ;; => "datastar-patch-signals"
 }
 }
