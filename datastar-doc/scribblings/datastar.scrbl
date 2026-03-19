@@ -1064,6 +1064,10 @@ Values are symbols (@racket['outer], @racket['inner], etc.).
 @defthing[patch-mode-before symbol?]{Insert before the element.}
 @defthing[patch-mode-after symbol?]{Insert after the element.}
 
+@defthing[element-patch-mode/c flat-contract?]{
+Contract for valid patch modes: any of the @racket[patch-mode-*] constants or @racket[#f].
+}
+
 @subsection{Element Namespaces}
 
 Named constants for the @racket[#:namespace] parameter of @racket[patch-elements].
@@ -1072,12 +1076,6 @@ Values are symbols (@racket['html], @racket['svg], @racket['mathml]).
 @defthing[element-namespace-html symbol?]{HTML namespace (default).}
 @defthing[element-namespace-svg symbol?]{SVG namespace.}
 @defthing[element-namespace-mathml symbol?]{MathML namespace.}
-
-@subsection{Contracts}
-
-@defthing[element-patch-mode/c flat-contract?]{
-Contract for valid patch modes: any of the @racket[patch-mode-*] constants or @racket[#f].
-}
 
 @defthing[element-namespace/c flat-contract?]{
 Contract for valid namespaces: any of the @racket[element-namespace-*] constants or @racket[#f].
