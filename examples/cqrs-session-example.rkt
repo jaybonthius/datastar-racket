@@ -1,8 +1,5 @@
 #lang racket
 
-;; This example requires koyo/session
-;; Install with `raco pkg install koyo-lib`
-
 (require datastar
          datastar-brotli
          koyo/session
@@ -16,9 +13,7 @@
 
 (file-stream-buffer-mode (current-output-port) 'line)
 
-;; ---------------------------------------------------------------------------
-;; Session setup
-;; ---------------------------------------------------------------------------
+;; session setup ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define session-store (make-memory-session-store))
 
@@ -31,9 +26,7 @@
                                  #:secret-key (crypto-random-bytes 16)
                                  #:store session-store)))
 
-;; ---------------------------------------------------------------------------
-;; Per-session todo store
-;; ---------------------------------------------------------------------------
+;; per-session todo store ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct session-data (id-counter todos subscribers) #:transparent)
 
@@ -66,9 +59,7 @@
   (for ([ch (in-list (unbox (session-data-subscribers (get-store sid))))])
     (async-channel-put ch cmd)))
 
-;; ---------------------------------------------------------------------------
-;; Main view
-;; ---------------------------------------------------------------------------
+;; main view ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (render-main sid)
   (define items (get-todos sid))
@@ -86,9 +77,7 @@
                       (button (,(ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
                               "Delete"))))))
 
-;; ---------------------------------------------------------------------------
-;; Read side -- long-lived SSE connection with fat morphs
-;; ---------------------------------------------------------------------------
+;; read side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define brotli-profile (make-brotli-write-profile))
 
@@ -110,9 +99,7 @@
                              (unsubscribe! sid ch))
                 #:write-profile brotli-profile))
 
-;; ---------------------------------------------------------------------------
-;; Write side -- mutate state and notify SSE loop
-;; ---------------------------------------------------------------------------
+;; write side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (todo-create req)
   (define sid (current-session-id))
@@ -136,9 +123,7 @@
     (notify! sid 'delete))
   (response/empty))
 
-;; ---------------------------------------------------------------------------
-;; Home page
-;; ---------------------------------------------------------------------------
+;; home page ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (home-handler _req)
   (response/xexpr `(html (head (script ((type "module") (src ,datastar-cdn-url))))
@@ -147,9 +132,7 @@
 (define (not-found-handler _req)
   (response/xexpr '(html (body "Not found"))))
 
-;; ---------------------------------------------------------------------------
-;; Routing
-;; ---------------------------------------------------------------------------
+;; routing ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-values (app _reverse-uri)
   (dispatch-rules [("") home-handler]

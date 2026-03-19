@@ -11,9 +11,7 @@
 
 (file-stream-buffer-mode (current-output-port) 'line)
 
-;; ---------------------------------------------------------------------------
-;; In-memory todo store
-;; ---------------------------------------------------------------------------
+;; in-memory todo store ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define id-counter (box 0))
 (define todos (box '()))
@@ -36,9 +34,7 @@
   (for ([ch (in-list (unbox subscribers))])
     (async-channel-put ch cmd)))
 
-;; ---------------------------------------------------------------------------
-;; Main view
-;; ---------------------------------------------------------------------------
+;; main view ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (render-main)
   (define items (unbox todos))
@@ -56,9 +52,7 @@
                       (button (,(ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
                               "Delete"))))))
 
-;; ---------------------------------------------------------------------------
-;; Read side — long-lived SSE connection with fat morphs
-;; ---------------------------------------------------------------------------
+;; read side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define brotli-profile (make-brotli-write-profile))
 
@@ -79,9 +73,7 @@
                              (unsubscribe! ch))
                 #:write-profile brotli-profile))
 
-;; ---------------------------------------------------------------------------
-;; Write side — mutate state and notify SSE loop
-;; ---------------------------------------------------------------------------
+;; write side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (todo-create req)
   (define signals (read-signals req))
@@ -99,9 +91,7 @@
     (notify! 'delete))
   (response/empty))
 
-;; ---------------------------------------------------------------------------
-;; Home page - serve view with initial state
-;; ---------------------------------------------------------------------------
+;; home page ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (home-handler _req)
   (response/xexpr `(html (head (script ((type "module") (src ,datastar-cdn-url))))
@@ -110,9 +100,7 @@
 (define (not-found-handler _req)
   (response/xexpr '(html (body "Not found"))))
 
-;; ---------------------------------------------------------------------------
-;; Routing
-;; ---------------------------------------------------------------------------
+;; routing ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-values (app _reverse-uri)
   (dispatch-rules [("") home-handler]

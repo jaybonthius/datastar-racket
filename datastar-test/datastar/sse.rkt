@@ -89,29 +89,23 @@
       (check-true (string-contains? result "second")))
 
     (test-case "without with-sse-lock: sends from other threads CAN interleave"
-      ;; Proves that batch locking is actually needed: without it, a sleep
-      ;; between two sends lets another thread's event slip in between.
+      ;; Without batch locking, a sleep between two sends lets another
+      ;; thread's event slip in between.
       (define-values (gen out) (make-test-sse))
       (define barrier (make-semaphore 0))
       (define threads
         (for/list ([i (in-range 5)])
           (thread (lambda ()
-                    ;; All threads start together
                     (semaphore-wait barrier)
-                    ;; NO with-sse-lock — each send locks independently
                     (patch-elements gen (format "<div>start-~a</div>" i))
                     (sleep 0.01)
                     (patch-elements gen (format "<div>end-~a</div>" i))))))
-      ;; Release all threads at once
       (for ([_ (in-range 5)])
         (semaphore-post barrier))
       (for-each thread-wait threads)
       (define result (get-output-string out))
-      ;; Extract the sequence of data values in order
       (define data-values
         (regexp-match* #rx"data: elements <div>([a-z]+-[0-9])" result #:match-select cadr))
-      ;; Without batch locking, at least one start-N should NOT be immediately
-      ;; followed by its matching end-N (another thread's event slipped in).
       (define adjacent-pairs
         (for/sum
          ([i (in-range (sub1 (length data-values)))])
@@ -172,7 +166,7 @@
       (define child-pos (caar (regexp-match-positions #rx"child" result)))
       (check-true (< parent-pos child-pos) "parent send should come before child send"))
 
-    ;; Accept-Encoding negotiation tests
+    ;; accept-encoding negotiation tests ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (test-case "accept-encoding: brotli used when client accepts br"
       (define req (make-request-with-accept-encoding "gzip, deflate, br"))

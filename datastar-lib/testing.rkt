@@ -6,11 +6,11 @@
          racket/string
          "private/sse.rkt")
 
-;; -------- sse-event struct --------
+;; sse-event struct ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct sse-event (type id retry data-lines) #:transparent)
 
-;; -------- SSE text parser --------
+;; SSE text parser ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (parse-sse-events raw)
   (cond
@@ -38,7 +38,7 @@
          [_ (void)]))
      (and type (sse-event type id retry data))]))
 
-;; -------- Public API --------
+;; public API ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (make-mock-sse)
   (define-values (gen out) (make-test-sse))
@@ -48,7 +48,7 @@
   (define-values (gen out) (make-test-sse))
   (values gen (lambda () (parse-sse-events (get-test-output out)))))
 
-;; -------- Contracts & provide --------
+;; contracts & provide ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (provide (contract-out (struct sse-event
                                ([type string?] [id (or/c string? #f)]

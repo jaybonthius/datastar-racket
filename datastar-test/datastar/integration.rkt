@@ -1,10 +1,5 @@
 #lang racket
 
-;; Integration tests for the Datastar Racket SDK.
-;;
-;; These test the full SSE lifecycle through a real web server and HTTP client,
-;; analogous to Clojure's persistent_connection.clj and Go's httptest pattern.
-
 (require datastar
          net/http-client
          racket/async-channel
@@ -13,11 +8,8 @@
          web-server/servlet-dispatch
          web-server/web-server)
 
-;; ============================================================================
-;; Test infrastructure
-;; ============================================================================
+;; test infrastructure ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Starts a test server with the given dispatch handler. Returns (values port stop-thunk).
 (define (start-test-server! handler)
   (define confirm-ch (make-async-channel))
   (define stop
@@ -32,27 +24,18 @@
   (define port (async-channel-get confirm-ch))
   (values port stop))
 
-;; Opens an SSE connection and returns (values http-conn status headers input-port).
-;; Uses sendrecv! which blocks until the response is complete — suitable for
-;; short-lived connections (tests 1-7).
 (define (open-sse-connection port path)
   (define conn (http-conn-open "127.0.0.1" #:port port))
   (define-values (status headers in)
     (http-conn-sendrecv! conn path #:method "GET" #:headers '("Accept: text/event-stream")))
   (values conn status headers in))
 
-;; Opens a streaming SSE connection and returns (values http-conn status headers input-port).
-;; Uses send! + recv! with #:close? #f so the input port is returned immediately
-;; without waiting for the full response body — suitable for long-lived persistent
-;; connections (tests 8-9).
 (define (open-sse-stream port path)
   (define conn (http-conn-open "127.0.0.1" #:port port))
   (http-conn-send! conn path #:method "GET" #:headers '("Accept: text/event-stream"))
   (define-values (status headers in) (http-conn-recv! conn #:close? #f))
   (values conn status headers in))
 
-;; Reads a single SSE event from the input port.
-;; Returns the event as a string, or #f on timeout/eof.
 (define (read-sse-event in #:timeout [timeout 5])
   (define deadline (+ (current-inexact-milliseconds) (* timeout 1000)))
   (let loop ([lines '()])
@@ -77,13 +60,11 @@
                  #f
                  (apply string-append (reverse lines)))]
             [(string=? line "")
-             ;; Empty line terminates an SSE event
              (if (null? lines)
-                 (loop lines) ; skip leading blank lines
+                 (loop lines)
                  (apply string-append (reverse lines)))]
             [else (loop (cons (string-append line "\n") lines))])])])))
 
-;; Reads all remaining lines from an input port until eof or timeout.
 (define (read-all-sse in #:timeout [timeout 5])
   (define deadline (+ (current-inexact-milliseconds) (* timeout 1000)))
   (let loop ([lines '()])
@@ -100,12 +81,9 @@
             [(eof-object? line) (apply string-append (reverse lines))]
             [else (loop (cons (string-append line "\n") lines))])])])))
 
-;; ============================================================================
-;; Test 1: SSE response has status 200
-;; ============================================================================
+;; test 1: SSE response has status 200 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "SSE response has status 200"
-  ;; Analogous to Clojure sse-status-ok?
   (define (handler req)
     (datastar-sse req (lambda (sse) (patch-elements sse "<div id=\"t\">ok</div>"))))
   (define-values (port stop) (start-test-server! handler))
@@ -115,18 +93,13 @@
   (http-conn-close! conn)
   (stop))
 
-;; ============================================================================
-;; Test 2: SSE response has correct headers
-;; ============================================================================
+;; test 2: SSE response has correct headers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "SSE response has correct headers"
-  ;; Analogous to Go TestSSESendWithActiveConnection header check,
-  ;; Clojure sse-http1-headers-ok?
   (define (handler req)
     (datastar-sse req (lambda (sse) (patch-elements sse "<div>test</div>"))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status headers in) (open-sse-connection port "/"))
-  ;; Check Content-Type
   (define (find-header name)
     (for/or ([h (in-list headers)])
       (define s
@@ -143,12 +116,9 @@
   (http-conn-close! conn)
   (stop))
 
-;; ============================================================================
-;; Test 3: SSE body matches expected event format
-;; ============================================================================
+;; test 3: SSE body matches expected event format ;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "SSE body matches expected event format for single event"
-  ;; Analogous to Clojure sse-body-ok?
   (define (handler req)
     (datastar-sse req (lambda (sse) (patch-elements sse "<div id=\"out\">hello</div>"))))
   (define-values (port stop) (start-test-server! handler))
@@ -163,12 +133,9 @@
   (http-conn-close! conn)
   (stop))
 
-;; ============================================================================
-;; Test 4: Multiple events delivered in correct order
-;; ============================================================================
+;; test 4: multiple events delivered in correct order ;;;;;;;;;;;;;;;;;;
 
 (test-case "multiple events delivered in correct order"
-  ;; Analogous to Clojure persistent connection sse-interaction! pattern
   (define (handler req)
     (datastar-sse req
                   (lambda (sse)
@@ -186,12 +153,9 @@
   (http-conn-close! conn)
   (stop))
 
-;; ============================================================================
-;; Test 5: on-close fires when on-open returns normally
-;; ============================================================================
+;; test 5: on-close fires when on-open returns normally ;;;;;;;;;;;;;;;;
 
 (test-case "on-close fires when on-open returns normally"
-  ;; Analogous to Clojure on-close callback tests
   (define close-called (box #f))
   (define (handler req)
     (datastar-sse req
@@ -199,23 +163,18 @@
                   #:on-close (lambda (_sse) (set-box! close-called #t))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-connection port "/"))
-  ;; Read the event and wait for connection to close
   (read-sse-event in)
-  ;; Wait for eof (handler returned, so connection should close)
   (read-sse-event in #:timeout 3)
-  ;; Give on-close a moment to execute
   (sleep 0.5)
   (check-true (unbox close-called) "on-close should have been called")
   (close-input-port in)
   (http-conn-close! conn)
   (stop))
 
-;; ============================================================================
-;; Test 6: on-close fires when on-open raises an exception
-;; ============================================================================
+;; test 6: on-close fires when on-open raises an exception ;;;;;;;;;;;;;
 
 (test-case "on-close fires when on-open raises an exception"
-  ;; Tests the dynamic-wind guarantee — unique to Racket but critical for correctness
+  ;; Tests the dynamic-wind guarantee
   (define close-called (box #f))
   (define (handler req)
     (datastar-sse req
@@ -223,8 +182,6 @@
                   #:on-close (lambda (_sse) (set-box! close-called #t))))
   (define-values (port stop) (start-test-server! handler))
   (define conn (http-conn-open "127.0.0.1" #:port port))
-  ;; The request may fail or return an error response because the handler errors,
-  ;; but on-close should still fire due to dynamic-wind.
   (with-handlers ([exn:fail? void])
     (define-values (_status _headers in)
       (http-conn-sendrecv! conn "/" #:method "GET" #:headers '("Accept: text/event-stream")))
@@ -232,25 +189,20 @@
       (read-sse-event in #:timeout 2))
     (with-handlers ([exn:fail? void])
       (close-input-port in)))
-  ;; Give on-close a moment to execute
   (sleep 1)
   (check-true (unbox close-called) "on-close should fire even when on-open raises")
   (with-handlers ([exn:fail? void])
     (http-conn-close! conn))
   (stop))
 
-;; ============================================================================
-;; Test 7: close-sse inside handler terminates the response
-;; ============================================================================
+;; test 7: close-sse inside handler terminates the response ;;;;;;;;;;;;
 
 (test-case "close-sse inside handler terminates the response"
-  ;; Analogous to Clojure d*/close-sse! in persistent connection test
   (define (handler req)
     (datastar-sse req
                   (lambda (sse)
                     (patch-elements sse "<div>before-close</div>")
                     (close-sse sse)
-                    ;; Send after close should raise
                     (patch-elements sse "<div>after-close</div>"))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-connection port "/"))
@@ -261,14 +213,9 @@
   (http-conn-close! conn)
   (stop))
 
-;; ============================================================================
-;; Test 8: Persistent connection — send events from outside the handler
-;; ============================================================================
+;; test 8: persistent connection ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "persistent connection: events sent from outside handler"
-  ;; Analogous to Clojure persistent_connection.clj ->persistent-sse-handler
-  ;; pattern, where the sse-gen is captured in a promise and events are sent
-  ;; from outside the request handler. This is how the CQRS example works.
   (define notify-ch (make-async-channel))
   (define close-called (box #f))
 
@@ -276,9 +223,6 @@
     (datastar-sse req
                   (lambda (sse)
                     (patch-elements sse "<div id=\"v\">initial</div>")
-                    ;; Block until signaled — real async-channel-get, just like
-                    ;; the CQRS example. The test client uses open-sse-stream
-                    ;; (non-blocking) so this doesn't cause a hang.
                     (let loop ()
                       (define msg (async-channel-get notify-ch))
                       (cond
@@ -291,12 +235,10 @@
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-stream port "/"))
 
-  ;; Read initial event
   (define evt0 (read-sse-event in))
   (check-not-false evt0 "should receive initial event")
   (check-true (string-contains? evt0 "initial") "initial event should have initial content")
 
-  ;; Send events from outside the handler via the async-channel
   (async-channel-put notify-ch "update-1")
   (define evt1 (read-sse-event in))
   (check-not-false evt1 "should receive first update")
@@ -307,10 +249,8 @@
   (check-not-false evt2 "should receive second update")
   (check-true (string-contains? evt2 "update-2") "should contain update-2")
 
-  ;; Signal the handler to stop
   (async-channel-put notify-ch 'stop)
 
-  ;; Wait for connection to close
   (read-sse-event in #:timeout 3)
   (sleep 0.5)
   (check-true (unbox close-called) "on-close should fire after handler exits")
@@ -319,13 +259,9 @@
   (http-conn-close! conn)
   (stop))
 
-;; ============================================================================
-;; Test 9: Persistent connection — on-close fires on client disconnect
-;; ============================================================================
+;; test 9: on-close fires on client disconnect ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "persistent connection: on-close fires on client disconnect"
-  ;; Tests that cleanup happens when the client side drops the connection,
-  ;; analogous to the CQRS unsubscribe pattern.
   (define close-called (box #f))
   (define notify-ch (make-async-channel))
 
@@ -340,26 +276,19 @@
 
   (define-values (port stop) (start-test-server! handler))
 
-  ;; Connect and immediately disconnect using raw send! — we don't call recv!
-  ;; because the handler blocks on async-channel-get before writing, so recv!
-  ;; would hang waiting for response headers that haven't been sent yet.
+  ;; With datastar-tcp@, the monitor thread detects the disconnect immediately
+  ;; via the TCP input port, without needing to force writes.
   (define conn (http-conn-open "127.0.0.1" #:port port))
   (http-conn-send! conn "/" #:method "GET" #:headers '("Accept: text/event-stream"))
   (http-conn-close! conn)
 
-  ;; With datastar-tcp@, the monitor thread detects the disconnect immediately
-  ;; via the TCP input port, without needing to force writes.
   (sleep 2)
   (check-true (unbox close-called) "on-close should fire after client disconnects")
   (stop))
 
-;; ============================================================================
-;; Test 10: Batch locking — multiple events delivered atomically
-;; ============================================================================
+;; test 10: batch locking ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "batch locking: with-sse-lock delivers events as atomic batch"
-  ;; Two threads each send 2-event batches via with-sse-lock.
-  ;; Verify events within each batch are adjacent (no interleaving).
   (define notify-ch (make-async-channel))
   (define close-called (box #f))
 
@@ -382,12 +311,10 @@
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-stream port "/"))
 
-  ;; Read initial event
   (define evt0 (read-sse-event in))
   (check-not-false evt0 "should receive initial event")
   (check-true (string-contains? evt0 "ready") "initial event should have ready content")
 
-  ;; Send first batch
   (async-channel-put notify-ch "batch-1")
   (define evt1 (read-sse-event in))
   (define evt2 (read-sse-event in))
@@ -396,7 +323,6 @@
   (check-true (string-contains? evt1 "batch-1-start") "first event should be start")
   (check-true (string-contains? evt2 "batch-1-end") "second event should be end")
 
-  ;; Send second batch
   (async-channel-put notify-ch "batch-2")
   (define evt3 (read-sse-event in))
   (define evt4 (read-sse-event in))
@@ -405,7 +331,6 @@
   (check-true (string-contains? evt3 "batch-2-start") "first event should be start")
   (check-true (string-contains? evt4 "batch-2-end") "second event should be end")
 
-  ;; Signal stop and clean up
   (async-channel-put notify-ch 'stop)
   (read-sse-event in #:timeout 3)
   (sleep 0.5)

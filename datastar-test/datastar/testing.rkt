@@ -11,7 +11,7 @@
 (define testing-tests
   (test-suite "testing"
 
-    ;; -- make-mock-sse tests --
+    ;; make-mock-sse tests ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (test-case "make-mock-sse: empty output before any sends"
       (define-values (_sse get-output) (make-mock-sse))
@@ -32,7 +32,7 @@
       (check-true (string-contains? out "event: datastar-patch-elements"))
       (check-true (string-contains? out "event: datastar-patch-signals")))
 
-    ;; -- make-recording-sse tests --
+    ;; make-recording-sse tests ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (test-case "make-recording-sse: empty list before any sends"
       (define-values (_sse get-events) (make-recording-sse))
@@ -132,7 +132,7 @@
       (define evt (first (get-events)))
       (check-not-false (member "onlyIfMissing true" (sse-event-data-lines evt))))
 
-    ;; -- parse-sse-events edge cases --
+    ;; parse-sse-events edge cases ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (test-case "parse-sse-events: empty string"
       (define-values (_sse get-events) (make-recording-sse))

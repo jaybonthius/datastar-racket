@@ -1,19 +1,10 @@
 #lang racket
 
-;; Comprehensive unit tests for Datastar attribute generators.
-;;
-;; Tests every attribute function, every modifier, every combination,
-;; and edge cases — covering the full Datastar attribute spec.
-;; Each test-case checks both the s-expression output and (where applicable)
-;; the rendered HTML via xexpr->string.
-
 (require datastar
          rackunit
          xml)
 
-;; ============================================================================
-;; Simple value attributes
-;; ============================================================================
+;; simple value attributes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:show basic"
   (check-equal? (ds:show "$count > 0") '(data-show "$count > 0"))
@@ -95,9 +86,7 @@
   (check-equal? (xexpr->string `(div (,(ds:match-media "is-dark" "'prefers-color-scheme: dark'")) ""))
                 "<div data-match-media:is-dark=\"'prefers-color-scheme: dark'\"></div>"))
 
-;; ============================================================================
-;; Hash-based attributes: ds:signals
-;; ============================================================================
+;; hash-based attributes: ds:signals ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:signals hash form"
   (check-equal? (ds:signals (hash 'count 0)) '(data-signals "{\"count\":0}"))
@@ -107,7 +96,7 @@
 (test-case "ds:signals hash with multiple values"
   (define result (ds:signals (hash 'count 0 'name "Alice")))
   (check-equal? (first result) 'data-signals)
-  ;; JSON key order may vary, so check both are present
+  ;; JSON key order may vary
   (check-true (string-contains? (second result) "\"count\":0"))
   (check-true (string-contains? (second result) "\"name\":\"Alice\"")))
 
@@ -142,7 +131,6 @@
 (test-case "ds:signals hash with null (signal removal)"
   (define result (ds:signals (hash 'foo 'null)))
   (check-equal? (first result) 'data-signals)
-  ;; 'null in Racket's json library serializes to JSON null (unquoted)
   (check-true (string-contains? (second result) "null")))
 
 (test-case "ds:signals hash with boolean"
@@ -155,9 +143,7 @@
   (check-equal? (first result) 'data-signals)
   (check-true (string-contains? (second result) "[1,2,3]")))
 
-;; ============================================================================
-;; Hash-based attributes: ds:computed
-;; ============================================================================
+;; hash-based attributes: ds:computed ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:computed keyed form with symbol"
   (check-equal? (ds:computed 'doubled "$count * 2") (list 'data-computed:doubled "$count * 2"))
@@ -171,7 +157,6 @@
   (define result (ds:computed (hash 'doubled "$count * 2" 'tripled "$count * 3")))
   (check-true (list? result))
   (check-equal? (length result) 2)
-  ;; Each element should be a pair with a symbol key
   (for ([pair (in-list result)])
     (check-true (list? pair))
     (check-equal? (length pair) 2)
@@ -186,13 +171,10 @@
   (check-equal? (hash-ref result-hash 'data-computed:b) "$y + 2"))
 
 (test-case "ds:computed hash form renders in x-expression"
-  ;; Hash form returns list of pairs; splice them into the attribute list
   (define pairs (ds:computed (hash 'a "$x + 1")))
   (check-equal? (xexpr->string `(div ,pairs "")) "<div data-computed:a=\"$x + 1\"></div>"))
 
-;; ============================================================================
-;; Hash-based attributes: ds:attr
-;; ============================================================================
+;; hash-based attributes: ds:attr ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:attr keyed form"
   (check-equal? (ds:attr "aria-label" "$foo") (list 'data-attr:aria-label "$foo"))
@@ -215,9 +197,7 @@
   (check-true (string-contains? (second result) "$foo"))
   (check-true (string-contains? (second result) "$bar")))
 
-;; ============================================================================
-;; Hash-based attributes: ds:class
-;; ============================================================================
+;; hash-based attributes: ds:class ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:class keyed form"
   (check-equal? (ds:class "font-bold" "$foo == 'strong'")
@@ -235,9 +215,7 @@
   (check-equal? (xexpr->string `(button (,(ds:class (hash "active" "$isActive"))) "Save"))
                 "<button data-class=\"{&quot;active&quot;: $isActive}\">Save</button>"))
 
-;; ============================================================================
-;; Hash-based attributes: ds:style
-;; ============================================================================
+;; hash-based attributes: ds:style ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:style keyed form"
   (check-equal? (ds:style "display" "$hiding && 'none'")
@@ -256,9 +234,7 @@
   (check-equal? (xexpr->string `(div (,(ds:style (hash "display" "$visible ? 'block' : 'none'"))) ""))
                 "<div data-style=\"{&quot;display&quot;: $visible ? 'block' : 'none'}\"></div>"))
 
-;; ============================================================================
-;; ds:on -- basic
-;; ============================================================================
+;; ds:on -- basic ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on basic click"
   (check-equal? (ds:on "click" "$foo = ''") (list 'data-on:click "$foo = ''"))
@@ -277,9 +253,7 @@
   (check-equal? (xexpr->string `(button (,(ds:on "click" (sse-post "/create"))) "Go"))
                 "<button data-on:click=\"@post('/create')\">Go</button>"))
 
-;; ============================================================================
-;; ds:on -- individual modifiers
-;; ============================================================================
+;; ds:on -- individual modifiers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on with once"
   (check-equal? (ds:on "click" "fn()" #:once #t) (list 'data-on:click__once "fn()")))
@@ -307,9 +281,7 @@
 (test-case "ds:on with trust"
   (check-equal? (ds:on "click" "fn()" #:trust #t) (list 'data-on:click__trust "fn()")))
 
-;; ============================================================================
-;; ds:on -- timing modifiers
-;; ============================================================================
+;; ds:on -- timing modifiers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on with debounce string"
   (check-equal? (ds:on "input" "fn()" #:debounce "300ms")
@@ -371,16 +343,13 @@
   (check-equal? (xexpr->string `(button (,(ds:on "click" "fn()" #:viewtransition #t)) ""))
                 "<button data-on:click__viewtransition=\"fn()\"></button>"))
 
-;; ============================================================================
-;; ds:on -- combined modifiers
-;; ============================================================================
+;; ds:on -- combined modifiers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on with window + debounce"
   (check-equal? (ds:on "click" "$foo = ''" #:window #t #:debounce "500ms")
                 (list (string->symbol "data-on:click__window__debounce.500ms") "$foo = ''")))
 
 (test-case "ds:on with window + debounce + leading (matches Datastar docs example)"
-  ;; Official Datastar example: data-on:click__window__debounce.500ms.leading="$foo = ''"
   (check-equal? (ds:on "click" "$foo = ''" #:window #t #:debounce "500ms" #:debounce-leading #t)
                 (list (string->symbol "data-on:click__window__debounce.500ms.leading") "$foo = ''"))
   (check-equal?
@@ -420,9 +389,7 @@
   (check-true (string-contains? attr-name "__trust"))
   (check-equal? (second result) "fn()"))
 
-;; ============================================================================
-;; ds:init
-;; ============================================================================
+;; ds:init ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:init basic"
   (check-equal? (ds:init "$count = 1") '(data-init "$count = 1"))
@@ -445,9 +412,7 @@
   (check-equal? (ds:init "fn()" #:delay "500ms" #:viewtransition #t)
                 (list (string->symbol "data-init__delay.500ms__viewtransition") "fn()")))
 
-;; ============================================================================
-;; ds:on-intersect
-;; ============================================================================
+;; ds:on-intersect ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on-intersect basic"
   (check-equal? (ds:on-intersect "$intersected = true") '(data-on-intersect "$intersected = true")))
@@ -475,7 +440,6 @@
                 (list (string->symbol "data-on-intersect__threshold.25") "fn()")))
 
 (test-case "ds:on-intersect with once + full (matches Datastar docs)"
-  ;; Official Datastar example: data-on-intersect__once__full="$fullyIntersected = true"
   (check-equal? (ds:on-intersect "$fullyIntersected = true" #:once #t #:full #t)
                 '(data-on-intersect__once__full "$fullyIntersected = true"))
   (check-equal?
@@ -506,9 +470,7 @@
   (check-true (string-contains? attr-name "__debounce.500ms"))
   (check-true (string-contains? attr-name "__viewtransition")))
 
-;; ============================================================================
-;; ds:on-interval
-;; ============================================================================
+;; ds:on-interval ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on-interval basic"
   (check-equal? (ds:on-interval "$count++") '(data-on-interval "$count++"))
@@ -516,7 +478,6 @@
                 "<div data-on-interval=\"$count++\"></div>"))
 
 (test-case "ds:on-interval with duration string"
-  ;; Official Datastar example: data-on-interval__duration.500ms="$count++"
   (check-equal? (ds:on-interval "$count++" #:duration "500ms")
                 (list (string->symbol "data-on-interval__duration.500ms") "$count++"))
   (check-equal? (xexpr->string `(div (,(ds:on-interval "$count++" #:duration "500ms")) ""))
@@ -541,16 +502,13 @@
   (check-equal? (ds:on-interval "fn()" #:duration "1s" #:viewtransition #t)
                 (list (string->symbol "data-on-interval__duration.1s__viewtransition") "fn()")))
 
-;; ============================================================================
-;; ds:on-signal-patch
-;; ============================================================================
+;; ds:on-signal-patch ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on-signal-patch basic"
   (check-equal? (ds:on-signal-patch "console.log('changed')")
                 '(data-on-signal-patch "console.log('changed')")))
 
 (test-case "ds:on-signal-patch with debounce"
-  ;; Official Datastar example: data-on-signal-patch__debounce.500ms="doSomething()"
   (check-equal? (ds:on-signal-patch "doSomething()" #:debounce "500ms")
                 (list (string->symbol "data-on-signal-patch__debounce.500ms") "doSomething()"))
   (check-equal? (xexpr->string `(div (,(ds:on-signal-patch "doSomething()" #:debounce "500ms")) ""))
@@ -566,12 +524,11 @@
 
 (test-case "ds:on-signal-patch with filter include"
   (define result (ds:on-signal-patch "fn()" #:include "counter"))
-  (check-true (list? (first result))) ; returns list of two attribute pairs
+  (check-true (list? (first result)))
   (check-equal? (first (first result)) 'data-on-signal-patch)
   (check-equal? (second (first result)) "fn()")
   (check-equal? (first (second result)) 'data-on-signal-patch-filter)
   (check-true (string-contains? (second (second result)) "\"include\""))
-  ;; HTML rendering with multi-attribute splice
   (check-equal?
    (xexpr->string `(div ,result ""))
    "<div data-on-signal-patch=\"fn()\" data-on-signal-patch-filter=\"{&quot;include&quot;: &quot;counter&quot;}\"></div>"))
@@ -592,15 +549,12 @@
   (check-true (list? (first result)))
   (check-equal? (first (first result)) (string->symbol "data-on-signal-patch__debounce.500ms")))
 
-;; ============================================================================
-;; ds:on-raf
-;; ============================================================================
+;; ds:on-raf ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on-raf basic"
   (check-equal? (ds:on-raf "$count++") '(data-on-raf "$count++")))
 
 (test-case "ds:on-raf with throttle"
-  ;; Official Datastar example: data-on-raf__throttle.10ms="$count++"
   (check-equal? (ds:on-raf "$count++" #:throttle "10ms")
                 (list (string->symbol "data-on-raf__throttle.10ms") "$count++"))
   (check-equal? (xexpr->string `(div (,(ds:on-raf "$count++" #:throttle "10ms")) ""))
@@ -610,15 +564,12 @@
   (check-equal? (ds:on-raf "fn()" #:throttle "10ms" #:throttle-noleading #t)
                 (list (string->symbol "data-on-raf__throttle.10ms.noleading") "fn()")))
 
-;; ============================================================================
-;; ds:on-resize
-;; ============================================================================
+;; ds:on-resize ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on-resize basic"
   (check-equal? (ds:on-resize "$count++") '(data-on-resize "$count++")))
 
 (test-case "ds:on-resize with debounce"
-  ;; Official Datastar example: data-on-resize__debounce.10ms="$count++"
   (check-equal? (ds:on-resize "$count++" #:debounce "10ms")
                 (list (string->symbol "data-on-resize__debounce.10ms") "$count++"))
   (check-equal? (xexpr->string `(div (,(ds:on-resize "$count++" #:debounce "10ms")) ""))
@@ -632,9 +583,7 @@
   (check-equal? (ds:on-resize "fn()" #:debounce "10ms" #:debounce-leading #t)
                 (list (string->symbol "data-on-resize__debounce.10ms.leading") "fn()")))
 
-;; ============================================================================
-;; ds:ignore
-;; ============================================================================
+;; ds:ignore ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:ignore basic"
   (check-equal? (ds:ignore) '(data-ignore ""))
@@ -648,9 +597,7 @@
 (test-case "ds:ignore self false is same as basic"
   (check-equal? (ds:ignore #:self #f) '(data-ignore "")))
 
-;; ============================================================================
-;; ds:scroll-into-view
-;; ============================================================================
+;; ds:scroll-into-view ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:scroll-into-view basic"
   (check-equal? (ds:scroll-into-view) '(data-scroll-into-view ""))
@@ -706,9 +653,7 @@
   (check-true (string-contains? attr-name "__vcenter"))
   (check-true (string-contains? attr-name "__focus")))
 
-;; ============================================================================
-;; ds:persist
-;; ============================================================================
+;; ds:persist ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:persist basic"
   (check-equal? (ds:persist) '(data-persist ""))
@@ -723,7 +668,6 @@
   (check-equal? (ds:persist #:session #t) '(data-persist__session "")))
 
 (test-case "ds:persist with key + session"
-  ;; Official Datastar example: data-persist:mykey__session
   (check-equal? (ds:persist #:key "mykey" #:session #t) (list 'data-persist:mykey__session ""))
   (check-equal? (xexpr->string `(div (,(ds:persist #:key "mykey" #:session #t)) ""))
                 "<div data-persist:mykey__session=\"\"></div>"))
@@ -745,9 +689,7 @@
    (xexpr->string `(div (,(ds:persist #:include "foo" #:exclude "bar")) ""))
    "<div data-persist=\"{&quot;include&quot;: &quot;foo&quot;, &quot;exclude&quot;: &quot;bar&quot;}\"></div>"))
 
-;; ============================================================================
-;; ds:query-string
-;; ============================================================================
+;; ds:query-string ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:query-string basic"
   (check-equal? (ds:query-string) '(data-query-string ""))
@@ -760,7 +702,6 @@
   (check-equal? (ds:query-string #:filter #t) '(data-query-string__filter "")))
 
 (test-case "ds:query-string with filter + history"
-  ;; Official Datastar example: data-query-string__filter__history
   (check-equal? (ds:query-string #:filter #t #:history #t) '(data-query-string__filter__history ""))
   (check-equal? (xexpr->string `(div (,(ds:query-string #:filter #t #:history #t)) ""))
                 "<div data-query-string__filter__history=\"\"></div>"))
@@ -775,9 +716,7 @@
   (check-true (string-contains? (second result) "\"include\""))
   (check-true (string-contains? (second result) "\"exclude\"")))
 
-;; ============================================================================
-;; ds:json-signals
-;; ============================================================================
+;; ds:json-signals ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:json-signals basic"
   (check-equal? (ds:json-signals) '(data-json-signals ""))
@@ -800,9 +739,7 @@
    (xexpr->string `(pre (,(ds:json-signals #:include "counter" #:terse #t)) ""))
    "<pre data-json-signals__terse=\"{&quot;include&quot;: &quot;counter&quot;}\"></pre>"))
 
-;; ============================================================================
-;; ds:preserve-attrs
-;; ============================================================================
+;; ds:preserve-attrs ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:preserve-attrs single"
   (check-equal? (ds:preserve-attrs "open") '(data-preserve-attr "open"))
@@ -818,37 +755,30 @@
 (test-case "ds:preserve-attrs single in list"
   (check-equal? (ds:preserve-attrs '("open")) '(data-preserve-attr "open")))
 
-;; ============================================================================
-;; X-expression integration -- usage patterns
-;; ============================================================================
+;; x-expression integration -- usage patterns ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "attribute in x-expression template"
-  ;; Verify the attribute pair format works in x-expression context
   (define attr (ds:on "click" "$count++"))
   (check-equal? (length attr) 2)
   (check-true (symbol? (first attr)))
   (check-true (string? (second attr))))
 
 (test-case "multiple attributes in x-expression"
-  ;; Simulates: `(div (,(ds:bind "filter") ,(ds:indicator "filtering")))
   (define attrs (list (ds:bind "filter") (ds:indicator "filtering")))
   (check-equal? (length attrs) 2)
   (check-equal? (first (first attrs)) 'data-bind:filter)
   (check-equal? (first (second attrs)) 'data-indicator:filtering))
 
 (test-case "init with sse-get in x-expression"
-  ;; Simulates: `(main ((id "main") ,(ds:init (sse-get "/events"))))
   (define attr (ds:init (sse-get "/events")))
   (check-equal? attr '(data-init "@get('/events')")))
 
 (test-case "on with sse-post and format in x-expression"
-  ;; Simulates: (ds:on "click" (sse-post (format "/todo/delete/~a" 42)))
   (define tid 42)
   (define attr (ds:on "click" (sse-post (format "/todo/delete/~a" tid))))
   (check-equal? attr (list 'data-on:click "@post('/todo/delete/42')")))
 
 (test-case "complex form with debounce pattern"
-  ;; Simulates the common search input pattern
   (define input-attr (ds:on "input" (sse-post "/search") #:debounce "250ms"))
   (define bind-attr (ds:bind "filter"))
   (define indicator-attr (ds:indicator "filtering"))
@@ -860,9 +790,7 @@
   (check-equal? (xexpr->string `(div (,(ds:show "$visible") (id "test")) "hello"))
                 "<div data-show=\"$visible\" id=\"test\">hello</div>"))
 
-;; ============================================================================
-;; X-expression integration -- realistic templates
-;; ============================================================================
+;; x-expression integration -- realistic templates ;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "search input pattern renders correct HTML"
   (check-equal?
@@ -884,9 +812,7 @@
                          (span (,(ds:text "$count")) "")))
    "<body data-init=\"@get('/updates')\" data-signals=\"{&quot;count&quot;:0}\"><span data-text=\"$count\"></span></body>"))
 
-;; ============================================================================
-;; Edge cases
-;; ============================================================================
+;; edge cases ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "ds:on with no modifiers returns clean attribute"
   (define attr (ds:on "click" "fn()"))
@@ -912,13 +838,11 @@
 
 (test-case "ds:on-signal-patch without filter returns single pair"
   (define result (ds:on-signal-patch "fn()"))
-  ;; Without filter, returns a flat pair
   (check-equal? (length result) 2)
   (check-true (symbol? (first result))))
 
 (test-case "ds:on-signal-patch with filter returns list of pairs"
   (define result (ds:on-signal-patch "fn()" #:include "x"))
-  ;; With filter, returns a list of two pairs
   (check-true (list? (first result)))
   (check-equal? (length result) 2))
 

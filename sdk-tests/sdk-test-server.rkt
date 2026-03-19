@@ -5,8 +5,6 @@
 
 (provide start-test-server)
 
-;; The SDK test suite sends mode/namespace as JSON strings.
-;; Convert to symbols for our API.
 (define (string->mode s)
   (and s (string->symbol s)))
 (define (string->namespace s)
