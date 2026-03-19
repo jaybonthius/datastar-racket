@@ -3,7 +3,9 @@
 @(require scribble/manual
           scribble/example
           (for-label datastar
+                     datastar-brotli
                      datastar/testing
+                     libbrotli
                      net/tcp-sig
                      racket/base
                      racket/contract
@@ -956,12 +958,16 @@ Updates the browser URL without navigating, using @tt{window.history.replaceStat
 This is a convenience function that calls @racket[execute-script].
 }
 
-@section[#:tag "write-profiles"]{Write Profiles}
+@section[#:tag "compression"]{Compression}
 
-A write profile controls how SSE bytes are written to the underlying connection. This
-abstraction allows pluggable compression (or other transforms) without changing the
-event-sending code. The @racket[#:write-profile] parameter on @racket[datastar-sse]
-accepts any @racket[write-profile?] value.
+SSE output can be compressed on the wire via @emph{write profiles}. A write profile
+controls how SSE bytes are written to the underlying connection, allowing pluggable
+compression without changing the event-sending code. Pass a write profile to
+@racket[datastar-sse] via the @racket[#:write-profile] keyword argument. If the client
+does not advertise support for the profile's content encoding in @tt{Accept-Encoding},
+the SDK automatically falls back to @racket[basic-write-profile].
+
+@subsection[#:tag "write-profiles"]{Write Profiles}
 
 @defproc[(write-profile? [v any/c]) boolean?]{
 Returns @racket[#t] if @racket[v] is a write profile.
@@ -971,8 +977,56 @@ Returns @racket[#t] if @racket[v] is a write profile.
 The default write profile. Writes SSE events uncompressed with no transformation.
 }
 
-For compression support, see the @tt{datastar-brotli} package, which provides a
-Brotli write profile.
+@subsection{Brotli}
+
+@defmodule[datastar-brotli]
+
+The @racketmodname[datastar-brotli] package provides
+@link["https://en.wikipedia.org/wiki/Brotli"]{Brotli} compression support. Install it
+separately (@tt{raco pkg install datastar-brotli}) and pass the resulting write profile
+to @racket[datastar-sse]:
+
+@codeblock{
+(require datastar
+         datastar-brotli)
+
+(define brotli-profile (make-brotli-write-profile))
+
+(define (handler req)
+  (datastar-sse
+   req
+   (lambda (sse)
+     (patch-elements/xexpr sse '(div ((id "out")) "Hello, compressed!")))
+   #:write-profile brotli-profile))
+}
+
+@defproc[(make-brotli-write-profile [#:quality quality (integer-in 0 11) 5]
+                                    [#:window window (integer-in 10 24) 22]
+                                    [#:mode mode mode/c BROTLI_MODE_TEXT]) write-profile?]{
+Creates a @racket[write-profile?] that compresses SSE output with Brotli.
+
+@itemlist[
+  @item{@racket[quality] --- Compression level from @racket[0] (fastest) to @racket[11]
+        (smallest). Default @racket[5] is a reasonable balance for streaming.}
+  @item{@racket[window] --- Sliding window size from @racket[10] to @racket[24].
+        Larger values may improve compression at the cost of memory.}
+  @item{@racket[mode] --- One of @racket[BROTLI_MODE_GENERIC], @racket[BROTLI_MODE_TEXT],
+        or @racket[BROTLI_MODE_FONT]. Use @racket[BROTLI_MODE_TEXT] (the default) for
+        SSE, which is UTF-8 text.}
+]
+}
+
+@defthing[BROTLI_MODE_GENERIC mode/c]{
+Generic mode, no assumptions about content type. Re-exported from @racketmodname[libbrotli].
+}
+
+@defthing[BROTLI_MODE_TEXT mode/c]{
+Text mode, optimized for UTF-8 input. Re-exported from @racketmodname[libbrotli].
+}
+
+@defthing[BROTLI_MODE_FONT mode/c]{
+Font mode, optimized for WOFF 2.0 fonts. Re-exported from @racketmodname[libbrotli].
+}
 
 @section{Constants}
 
