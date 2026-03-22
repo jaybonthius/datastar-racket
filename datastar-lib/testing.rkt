@@ -8,7 +8,7 @@
 
 ;; sse-event struct ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(struct sse-event (type id retry data-lines) #:transparent)
+(struct sse-event (type id retry data-lines) #:transparent) ;; review: ignore
 
 ;; SSE text parser ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

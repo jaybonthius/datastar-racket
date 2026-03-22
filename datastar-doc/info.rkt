@@ -1,4 +1,5 @@
 #lang info
+#|review: ignore|#
 
 (define collection "datastar")
 
@@ -7,7 +8,7 @@
 (define deps '("base"))
 
 (define build-deps
-  '("datastar-lib" "libbrotli"
+  '("datastar-lib" "web-server-compress-lib"
                    "net-doc"
                    "net-lib"
                    "rackunit-doc"

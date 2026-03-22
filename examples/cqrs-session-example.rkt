@@ -2,9 +2,9 @@
 
 (require datastar
          koyo/session
-         libbrotli/http
          racket/async-channel
          racket/random
+         web-server-compress
          web-server/dispatch
          web-server/http
          web-server/safety-limits
@@ -79,11 +79,10 @@
 
 ;; read side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (events-handler req)
+(define (events-handler _req)
   (define sid (current-session-id))
   (define ch (subscribe! sid))
-  (datastar-sse req
-                (lambda (sse)
+  (datastar-sse (lambda (sse)
                   (printf "Client connected (session: ~a)~n" sid)
                   (patch-elements/xexpr sse (render-main sid))
                   (let loop ()
@@ -138,12 +137,10 @@
                   [("todo" "delete" (string-arg)) #:method "post" todo-delete]
                   [else not-found-handler]))
 
-(define compressed-app (wrap-brotli-compress app))
-
 (printf "Starting CQRS example on http://127.0.0.1:8080~n")
 
 (define stop
-  (serve #:dispatch (dispatch/servlet ((wrap-session session-manager) compressed-app))
+  (serve #:dispatch (dispatch/servlet ((wrap-session session-manager) (wrap-brotli-compress app)))
          #:tcp@ datastar-tcp@
          #:listen-ip "127.0.0.1"
          #:port 8080

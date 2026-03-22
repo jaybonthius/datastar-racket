@@ -4,8 +4,8 @@
           scribble/example
           (for-label datastar
                      datastar/testing
-                     libbrotli
-                     libbrotli/http
+                     web-server-compress
+                     web-server-compress/brotli
                      net/tcp-sig
                      racket/base
                      racket/contract
@@ -56,7 +56,6 @@ Example usage (adapted from the @link["https://github.com/starfederation/datasta
 
   ; Create a Server-Sent Event response
   (datastar-sse
-   req
    (lambda (sse)
      ; Patch elements in the DOM
      (patch-elements/xexpr sse '(div ((id "output")) "Hello from Datastar!"))
@@ -96,8 +95,7 @@ If the client disconnects or a send fails, an exception is raised which
 
 @codeblock{
 (define (streaming-handler req)
-  (datastar-sse req
-                (lambda (sse)
+  (datastar-sse (lambda (sse)
                   (for ([i (in-range 10)])
                     (patch-elements/xexpr sse
                                           `(div ((id "counter"))
@@ -112,8 +110,7 @@ You can also use the @racket[#:on-close] callback for cleanup when the connectio
 (define connections (mutable-set))
 
 (define (streaming-handler req)
-  (datastar-sse req
-                (lambda (sse)
+  (datastar-sse (lambda (sse)
                   (set-add! connections sse)
                   (console-log sse "connected"))
                 #:on-close (lambda (sse) (set-remove! connections sse))))
@@ -172,8 +169,7 @@ full details on event types and their data lines.
 
 @subsection{SSE Generator}
 
-@defproc[(datastar-sse [request request?]
-                       [on-open (-> sse? any)]
+@defproc[(datastar-sse [on-open (-> sse? any)]
                        [#:on-close on-close (or/c (-> sse? any) #f) #f]) response?]{
 Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a fresh
 @racket[sse?] generator that can be used to send events to the client. When @racket[on-open]
@@ -397,17 +393,17 @@ Contract for valid namespaces: any of the @racket[element-namespace-*] constants
 @section[#:tag "compression"]{Compression}
 
 To add Brotli compression, wrap your app handler with @racket[wrap-brotli-compress]
-from @racketmodname[libbrotli/http]:
+from @racketmodname[web-server-compress]:
 
 @codeblock{
 (require datastar
-         libbrotli/http
+         web-server-compress
          web-server/dispatch
          web-server/servlet-dispatch
          web-server/web-server)
 
 (define (events-handler req)
-  (datastar-sse req (lambda (sse) ...)))
+  (datastar-sse (lambda (sse) ...)))
 
 (define-values (app _uri) (dispatch-rules ...))
 
@@ -416,9 +412,6 @@ from @racketmodname[libbrotli/http]:
 
 Responses are compressed only when the client sends @tt{Accept-Encoding: br}.
 Each SSE event is flushed to the client immediately.
-
-See @other-doc['(lib "libbrotli/scribblings/libbrotli.scrbl")] for full documentation
-of @racket[wrap-brotli-compress] and its parameters.
 
 @section{Frontend Helpers}
 

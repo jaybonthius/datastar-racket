@@ -73,8 +73,7 @@
 (define (test-handler req)
   (define signals (read-signals req))
   (define events (hash-ref signals 'events '()))
-  (datastar-sse req
-                (lambda (sse)
+  (datastar-sse (lambda (sse)
                   (for ([event events])
                     (process-single-event sse event)))))
 

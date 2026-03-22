@@ -9,11 +9,11 @@
          "private/sse.rkt")
 
 (provide (contract-out [datastar-sse
-                        (->* [request? (-> sse? any)] [#:on-close (or/c (-> sse? any) #f)] response?)]
+                        (->* [(-> sse? any)] [#:on-close (or/c (-> sse? any) #f)] response?)]
                        [close-sse (-> sse? void?)]
-                       [sse-closed? (-> sse? boolean?)]
-                       [sse? (-> any/c boolean?)]
-                       [call-with-sse-lock (-> sse? (-> any) any)])
+                       [sse-closed? (-> sse? boolean?)] ;; review: ignore
+                       [sse? (-> any/c boolean?)] ;; review: ignore
+                       [call-with-sse-lock (-> sse? (-> any) any)]) ;; review: ignore
          with-sse-lock
          datastar-tcp@)
 
@@ -22,19 +22,19 @@
 (define-unit datastar-tcp@
              (import)
              (export tcp^)
-             (define tcp-listen racket:tcp-listen)
-             (define tcp-listener? racket:tcp-listener?)
-             (define tcp-close racket:tcp-close)
-             (define tcp-connect racket:tcp-connect)
-             (define tcp-connect/enable-break racket:tcp-connect/enable-break)
-             (define tcp-accept-ready? racket:tcp-accept-ready?)
-             (define tcp-addresses racket:tcp-addresses)
-             (define tcp-abandon-port racket:tcp-abandon-port)
-             (define (tcp-accept listener)
+             (define tcp-listen racket:tcp-listen) ;; review: ignore
+             (define tcp-listener? racket:tcp-listener?) ;; review: ignore
+             (define tcp-close racket:tcp-close) ;; review: ignore
+             (define tcp-connect racket:tcp-connect) ;; review: ignore
+             (define tcp-connect/enable-break racket:tcp-connect/enable-break) ;; review: ignore
+             (define tcp-accept-ready? racket:tcp-accept-ready?) ;; review: ignore
+             (define tcp-addresses racket:tcp-addresses) ;; review: ignore
+             (define tcp-abandon-port racket:tcp-abandon-port) ;; review: ignore
+             (define (tcp-accept listener) ;; review: ignore
                (define-values (ip op) (racket:tcp-accept listener))
                (current-datastar-input-port ip)
                (values ip op))
-             (define (tcp-accept/enable-break listener)
+             (define (tcp-accept/enable-break listener) ;; review: ignore
                (define-values (ip op) (racket:tcp-accept/enable-break listener))
                (current-datastar-input-port ip)
                (values ip op)))
@@ -42,7 +42,7 @@
 (define (close-sse gen)
   (set-box! (sse-closed-box gen) #t))
 
-(define (datastar-sse request on-open #:on-close [on-close #f])
+(define (datastar-sse on-open #:on-close [on-close #f])
   (define extra-headers
     (for/list ([(k v) (in-hash sse-headers)])
       (make-header (string->bytes/utf-8 k) (string->bytes/utf-8 v))))

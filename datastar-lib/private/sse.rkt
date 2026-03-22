@@ -1,6 +1,6 @@
 #lang racket/base
 
-(provide make-sse
+(provide make-sse ;; review: ignore
          sse?
          sse-out
          sse-semaphore
@@ -12,7 +12,7 @@
          make-test-sse
          get-test-output)
 
-(struct sse (out semaphore closed-box lock-held?) #:constructor-name make-sse)
+(struct sse (out semaphore closed-box lock-held?) #:constructor-name make-sse) ;; review: ignore
 
 (define (sse-closed? gen)
   (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))

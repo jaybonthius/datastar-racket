@@ -84,8 +84,8 @@
 ;; test 1: SSE response has status 200 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "SSE response has status 200"
-  (define (handler req)
-    (datastar-sse req (lambda (sse) (patch-elements sse "<div id=\"t\">ok</div>"))))
+  (define (handler _req)
+    (datastar-sse (lambda (sse) (patch-elements sse "<div id=\"t\">ok</div>"))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn status _headers in) (open-sse-connection port "/"))
   (check-regexp-match #rx"200" status)
@@ -96,8 +96,8 @@
 ;; test 2: SSE response has correct headers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "SSE response has correct headers"
-  (define (handler req)
-    (datastar-sse req (lambda (sse) (patch-elements sse "<div>test</div>"))))
+  (define (handler _req)
+    (datastar-sse (lambda (sse) (patch-elements sse "<div>test</div>"))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status headers in) (open-sse-connection port "/"))
   (define (find-header name)
@@ -119,8 +119,8 @@
 ;; test 3: SSE body matches expected event format ;;;;;;;;;;;;;;;;;;;;;;
 
 (test-case "SSE body matches expected event format for single event"
-  (define (handler req)
-    (datastar-sse req (lambda (sse) (patch-elements sse "<div id=\"out\">hello</div>"))))
+  (define (handler _req)
+    (datastar-sse (lambda (sse) (patch-elements sse "<div id=\"out\">hello</div>"))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-connection port "/"))
   (define evt (read-sse-event in))
@@ -136,9 +136,8 @@
 ;; test 4: multiple events delivered in correct order ;;;;;;;;;;;;;;;;;;
 
 (test-case "multiple events delivered in correct order"
-  (define (handler req)
-    (datastar-sse req
-                  (lambda (sse)
+  (define (handler _req)
+    (datastar-sse (lambda (sse)
                     (patch-elements sse "<div id=\"a\">first</div>")
                     (patch-elements sse "<div id=\"b\">second</div>"))))
   (define-values (port stop) (start-test-server! handler))
@@ -157,9 +156,8 @@
 
 (test-case "on-close fires when on-open returns normally"
   (define close-called (box #f))
-  (define (handler req)
-    (datastar-sse req
-                  (lambda (sse) (patch-elements sse "<div>done</div>"))
+  (define (handler _req)
+    (datastar-sse (lambda (sse) (patch-elements sse "<div>done</div>"))
                   #:on-close (lambda (_sse) (set-box! close-called #t))))
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-connection port "/"))
@@ -176,9 +174,8 @@
 (test-case "on-close fires when on-open raises an exception"
   ;; Tests the dynamic-wind guarantee
   (define close-called (box #f))
-  (define (handler req)
-    (datastar-sse req
-                  (lambda (_sse) (error "intentional test error"))
+  (define (handler _req)
+    (datastar-sse (lambda (_sse) (error "intentional test error"))
                   #:on-close (lambda (_sse) (set-box! close-called #t))))
   (define-values (port stop) (start-test-server! handler))
   (define conn (http-conn-open "127.0.0.1" #:port port))
@@ -198,9 +195,8 @@
 ;; test 7: close-sse inside handler terminates the response ;;;;;;;;;;;;
 
 (test-case "close-sse inside handler terminates the response"
-  (define (handler req)
-    (datastar-sse req
-                  (lambda (sse)
+  (define (handler _req)
+    (datastar-sse (lambda (sse)
                     (patch-elements sse "<div>before-close</div>")
                     (close-sse sse)
                     (patch-elements sse "<div>after-close</div>"))))
@@ -219,9 +215,8 @@
   (define notify-ch (make-async-channel))
   (define close-called (box #f))
 
-  (define (handler req)
-    (datastar-sse req
-                  (lambda (sse)
+  (define (handler _req)
+    (datastar-sse (lambda (sse)
                     (patch-elements sse "<div id=\"v\">initial</div>")
                     (let loop ()
                       (define msg (async-channel-get notify-ch))
@@ -265,9 +260,8 @@
   (define close-called (box #f))
   (define notify-ch (make-async-channel))
 
-  (define (handler req)
-    (datastar-sse req
-                  (lambda (sse)
+  (define (handler _req)
+    (datastar-sse (lambda (sse)
                     (let loop ()
                       (define msg (async-channel-get notify-ch))
                       (patch-elements sse (format "<div>~a</div>" msg))
@@ -292,9 +286,8 @@
   (define notify-ch (make-async-channel))
   (define close-called (box #f))
 
-  (define (handler req)
+  (define (handler _req)
     (datastar-sse
-     req
      (lambda (sse)
        (patch-elements sse "<div id=\"init\">ready</div>")
        (let loop ()

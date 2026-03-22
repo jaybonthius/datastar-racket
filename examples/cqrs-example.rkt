@@ -1,8 +1,8 @@
 #lang racket
 
 (require datastar
-         libbrotli/http
          racket/async-channel
+         web-server-compress
          web-server/dispatch
          web-server/http
          web-server/safety-limits
@@ -54,10 +54,9 @@
 
 ;; read side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (events-handler req)
+(define (events-handler _req)
   (define ch (subscribe!))
-  (datastar-sse req
-                (lambda (sse)
+  (datastar-sse (lambda (sse)
                   (printf "Client connected~n")
                   (patch-elements/xexpr sse (render-main))
                   (let loop ()
@@ -106,15 +105,13 @@
                   [("todo" "delete" (string-arg)) #:method "post" todo-delete]
                   [else not-found-handler]))
 
-(define compressed-app (wrap-brotli-compress app))
-
 (printf "Starting CQRS example on http://127.0.0.1:8080~n")
 
 (define stop
-  (serve #:dispatch (dispatch/servlet compressed-app)
+  (serve #:dispatch (dispatch/servlet (wrap-brotli-compress app))
          #:tcp@ datastar-tcp@
          #:listen-ip "127.0.0.1"
-         #:port 8080
+         #:port 8090
          #:connection-close? #t
          #:safety-limits (make-safety-limits #:response-timeout +inf.0
                                              #:response-send-timeout +inf.0)))
