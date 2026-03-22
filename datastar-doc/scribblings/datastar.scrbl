@@ -411,7 +411,10 @@ from @racketmodname[web-server-compress]:
 }
 
 Responses are compressed only when the client sends @tt{Accept-Encoding: br}.
-Each SSE event is flushed to the client immediately.
+Each SSE event is flushed to the client immediately. Optional keyword arguments
+like @racket[#:quality] and @racket[#:compress?] let you tune the encoder or
+override which responses are compressed; see the
+@racketmodname[web-server-compress] docs for the full API.
 
 @section{Frontend Helpers}
 
