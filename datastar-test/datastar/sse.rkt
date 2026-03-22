@@ -1,36 +1,12 @@
 #lang racket/base
 
 (require datastar
-         (only-in datastar/private/sse make-write-profile make-test-sse get-test-output)
+         (only-in datastar/private/sse make-test-sse get-test-output)
          datastar/testing
-         net/url
-         racket/promise
          racket/string
-         rackunit
-         web-server/http/request-structs
-         web-server/http/response-structs)
+         rackunit)
 
 (provide sse-tests)
-
-(define fake-br-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) 'br))
-
-(define (make-request-with-accept-encoding accept-encoding)
-  (make-request #"GET"
-                (url "http" #f "localhost" 8080 #t (list (path/param "test" '())) '() #f)
-                (if accept-encoding
-                    (list (make-header #"Accept-Encoding" (string->bytes/utf-8 accept-encoding)))
-                    '())
-                (delay
-                  '())
-                #f
-                "127.0.0.1"
-                8080
-                "127.0.0.1"))
-
-(define (response-has-content-encoding? resp encoding)
-  (for/or ([h (in-list (response-headers resp))])
-    (and (equal? (header-field h) #"Content-Encoding")
-         (equal? (header-value h) (string->bytes/utf-8 encoding)))))
 
 (define sse-tests
   (test-suite "sse"
@@ -164,34 +140,7 @@
       (define result (get-output-string out))
       (define parent-pos (caar (regexp-match-positions #rx"parent" result)))
       (define child-pos (caar (regexp-match-positions #rx"child" result)))
-      (check-true (< parent-pos child-pos) "parent send should come before child send"))
-
-    ;; accept-encoding negotiation tests ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-    (test-case "accept-encoding: brotli used when client accepts br"
-      (define req (make-request-with-accept-encoding "gzip, deflate, br"))
-      (define resp (datastar-sse req (lambda (_sse) (void)) #:write-profile fake-br-profile))
-      (check-true (response-has-content-encoding? resp "br")))
-
-    (test-case "accept-encoding: falls back when client does not accept br"
-      (define req (make-request-with-accept-encoding "gzip, deflate"))
-      (define resp (datastar-sse req (lambda (_sse) (void)) #:write-profile fake-br-profile))
-      (check-false (response-has-content-encoding? resp "br")))
-
-    (test-case "accept-encoding: falls back when no Accept-Encoding header"
-      (define req (make-request-with-accept-encoding #f))
-      (define resp (datastar-sse req (lambda (_sse) (void)) #:write-profile fake-br-profile))
-      (check-false (response-has-content-encoding? resp "br")))
-
-    (test-case "accept-encoding: quality weights are stripped"
-      (define req (make-request-with-accept-encoding "gzip;q=1.0, br;q=0.5"))
-      (define resp (datastar-sse req (lambda (_sse) (void)) #:write-profile fake-br-profile))
-      (check-true (response-has-content-encoding? resp "br")))
-
-    (test-case "accept-encoding: basic profile always works regardless of headers"
-      (define req (make-request-with-accept-encoding "gzip, deflate"))
-      (define resp (datastar-sse req (lambda (_sse) (void)) #:write-profile basic-write-profile))
-      (check-false (response-has-content-encoding? resp "br")))))
+      (check-true (< parent-pos child-pos) "parent send should come before child send"))))
 
 (module+ test
   (require rackunit/text-ui)

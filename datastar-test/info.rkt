@@ -4,8 +4,7 @@
 
 (define deps '())
 
-(define build-deps
-  '("base" "datastar-brotli" "datastar-lib" "libbrotli" "net-lib" "rackunit-lib" "web-server-lib"))
+(define build-deps '("base" "datastar-lib" "net-lib" "rackunit-lib" "web-server-lib"))
 
 (define update-implies '("datastar-lib"))
 

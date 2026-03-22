@@ -1,16 +1,8 @@
 #lang racket/base
 
-(provide make-write-profile
-         write-profile?
-         write-profile-wrap-output
-         write-profile-flush!
-         write-profile-content-encoding
-         basic-write-profile
-         make-sse
+(provide make-sse
          sse?
          sse-out
-         sse-raw-out
-         sse-flush!
          sse-semaphore
          sse-closed-box
          sse-lock-held?
@@ -20,11 +12,7 @@
          make-test-sse
          get-test-output)
 
-(struct write-profile (wrap-output flush! content-encoding) #:constructor-name make-write-profile)
-
-(define basic-write-profile (make-write-profile values (lambda (_wrapped raw) (flush-output raw)) #f))
-
-(struct sse (out raw-out flush! semaphore closed-box lock-held?) #:constructor-name make-sse)
+(struct sse (out semaphore closed-box lock-held?) #:constructor-name make-sse)
 
 (define (sse-closed? gen)
   (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))
@@ -44,17 +32,11 @@
                         (when (sse-closed? gen)
                           (error 'sse-send "connection is closed"))
                         (write-string event-str (sse-out gen))
-                        ((sse-flush! gen) (sse-out gen) (sse-raw-out gen)))))
+                        (flush-output (sse-out gen)))))
 
 (define (make-test-sse)
   (define out (open-output-string))
-  (values (make-sse out
-                    out
-                    (lambda (_wrapped raw) (flush-output raw))
-                    (make-semaphore 1)
-                    (box #f)
-                    (make-thread-cell #f #f))
-          out))
+  (values (make-sse out (make-semaphore 1) (box #f) (make-thread-cell #f #f)) out))
 
 (define (get-test-output port)
   (get-output-string port))

@@ -1,7 +1,7 @@
 #lang racket
 
 (require datastar
-         datastar-brotli
+         libbrotli/http
          racket/async-channel
          web-server/dispatch
          web-server/http
@@ -54,8 +54,6 @@
 
 ;; read side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define brotli-profile (make-brotli-write-profile))
-
 (define (events-handler req)
   (define ch (subscribe!))
   (datastar-sse req
@@ -70,8 +68,7 @@
                     (loop)))
                 #:on-close (lambda (_sse)
                              (printf "Client disconnected~n")
-                             (unsubscribe! ch))
-                #:write-profile brotli-profile))
+                             (unsubscribe! ch))))
 
 ;; write side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -109,10 +106,12 @@
                   [("todo" "delete" (string-arg)) #:method "post" todo-delete]
                   [else not-found-handler]))
 
+(define compressed-app (wrap-brotli-compress app))
+
 (printf "Starting CQRS example on http://127.0.0.1:8080~n")
 
 (define stop
-  (serve #:dispatch (dispatch/servlet app)
+  (serve #:dispatch (dispatch/servlet compressed-app)
          #:tcp@ datastar-tcp@
          #:listen-ip "127.0.0.1"
          #:port 8080
