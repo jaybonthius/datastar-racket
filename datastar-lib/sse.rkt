@@ -40,10 +40,7 @@
                (values ip op)))
 
 (define (close-sse gen)
-  (unless (unbox (sse-closed-box gen))
-    (set-box! (sse-closed-box gen) #t)
-    (with-handlers ([exn:fail? void])
-      (close-output-port (sse-out gen)))))
+  (set-box! (sse-closed-box gen) #t))
 
 (define (datastar-sse request on-open #:on-close [on-close #f])
   (define extra-headers
