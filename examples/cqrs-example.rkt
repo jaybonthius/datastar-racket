@@ -111,7 +111,7 @@
   (serve #:dispatch (dispatch/servlet (wrap-brotli-compress app))
          #:tcp@ datastar-tcp@
          #:listen-ip "127.0.0.1"
-         #:port 8090
+         #:port 8080
          #:connection-close? #t
          #:safety-limits (make-safety-limits #:response-timeout +inf.0
                                              #:response-send-timeout +inf.0)))
