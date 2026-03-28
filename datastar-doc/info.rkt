@@ -8,7 +8,7 @@
 (define deps '("base"))
 
 (define build-deps
-  '("datastar-lib" "web-server-compress-lib"
+  '("datastar-lib" "web-server-compress"
                    "net-doc"
                    "net-lib"
                    "rackunit-doc"
