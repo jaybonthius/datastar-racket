@@ -5,7 +5,6 @@
           (for-label datastar
                      datastar/testing
                      web-server-compress
-                     web-server-compress/brotli
                      net/tcp-sig
                      racket/base
                      racket/contract
@@ -392,7 +391,7 @@ Contract for valid namespaces: any of the @racket[element-namespace-*] constants
 
 @section[#:tag "compression"]{Compression}
 
-To add Brotli compression, wrap your app handler with @racket[wrap-brotli-compress]
+To add compression, wrap your app handler with @racket[wrap-compress]
 from @racketmodname[web-server-compress]:
 
 @codeblock{
@@ -407,13 +406,25 @@ from @racketmodname[web-server-compress]:
 
 (define-values (app _uri) (dispatch-rules ...))
 
-(serve #:dispatch (dispatch/servlet (wrap-brotli-compress app)) ...)
+(serve #:dispatch (dispatch/servlet (wrap-compress app)) ...)
 }
 
-Responses are compressed only when the client sends @tt{Accept-Encoding: br}.
-Each SSE event is flushed to the client immediately. Optional keyword arguments
-like @racket[#:quality] and @racket[#:compress?] let you tune the encoder or
-override which responses are compressed; see the
+By default, @racket[wrap-compress] negotiates with the client's
+@tt{Accept-Encoding} header using server-priority order: zstd first, then
+Brotli. If the client doesn't support either, responses pass through
+uncompressed. Each SSE event is flushed to the client immediately.
+
+To customize the encoding priority or tune per-encoding parameters:
+
+@codeblock{
+(wrap-compress app
+  #:encodings '(br zstd)
+  #:brotli-quality 9
+  #:zstd-level 6)
+}
+
+For single-encoding use, @racket[wrap-brotli-compress] and
+@racket[wrap-zstd-compress] are also available. See the
 @racketmodname[web-server-compress] docs for the full API.
 
 @section{Frontend Helpers}

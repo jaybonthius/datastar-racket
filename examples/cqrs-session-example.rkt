@@ -140,7 +140,7 @@
 (printf "Starting CQRS example on http://127.0.0.1:8080~n")
 
 (define stop
-  (serve #:dispatch (dispatch/servlet ((wrap-session session-manager) (wrap-brotli-compress app)))
+  (serve #:dispatch (dispatch/servlet ((wrap-session session-manager) (wrap-compress app)))
          #:tcp@ datastar-tcp@
          #:listen-ip "127.0.0.1"
          #:port 8080
