@@ -1,17 +1,14 @@
 #lang racket/base
 
-(require datastar
-         (only-in datastar/private/sse make-test-sse get-test-output)
+(require datastar/http/request
          net/url
          racket/promise
-         racket/string
          rackunit
-         web-server/http/request-structs
-         web-server/http/response-structs)
+         web-server/http/request-structs)
 
-(provide signals-tests)
+(provide request-tests)
 
-;; read-signals helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define (make-get-request signals-json)
   (make-request #"GET"
                 (url "http" #f "localhost" 8080 #t (list (path/param "test" '())) '() #f)
@@ -45,21 +42,8 @@
                 8080
                 "127.0.0.1"))
 
-(define signals-tests
-  (test-suite "signals"
-
-    (test-case "patch-signals with hash produces correct format"
-      (define-values (gen out) (make-test-sse))
-      (patch-signals gen (hash 'count 1))
-      (define result (get-test-output out))
-      (check-true (string-contains? result "event: datastar-patch-signals"))
-      (check-true (string-contains? result "data: signals {")))
-
-    (test-case "patch-signals with only-if-missing"
-      (define-values (gen out) (make-test-sse))
-      (patch-signals gen (hash 'x 1) #:only-if-missing #t)
-      (define result (get-test-output out))
-      (check-true (string-contains? result "data: onlyIfMissing true")))
+(define request-tests
+  (test-suite "request"
 
     (test-case "read-signals parses GET request with datastar query param"
       (define req (make-get-request "{\"count\":42,\"msg\":\"hello\"}"))
@@ -123,4 +107,4 @@
 
 (module+ test
   (require rackunit/text-ui)
-  (run-tests signals-tests))
+  (run-tests request-tests))

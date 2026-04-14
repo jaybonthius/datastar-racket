@@ -1,7 +1,5 @@
 #lang racket/base
 
-(require "../constants.rkt")
-
 (provide datastar-key
          sse-headers
          default-element-patch-mode
@@ -24,8 +22,8 @@
 (define sse-headers
   (hash "Cache-Control" "no-cache" "Connection" "keep-alive" "X-Accel-Buffering" "no"))
 
-(define default-element-patch-mode patch-mode-outer)
-(define default-element-namespace element-namespace-html)
+(define default-element-patch-mode 'outer)
+(define default-element-namespace 'html)
 
 (define event-type-patch-elements 'datastar-patch-elements)
 (define event-type-patch-signals 'datastar-patch-signals)

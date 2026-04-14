@@ -38,9 +38,9 @@
 
 (define (render-main)
   (define items (unbox todos))
-  `(main ((id "main") ,(data-init (sse-get "/events")))
+  `(main ((id "main") ,(data-init (get "/events")))
          (h1 "CQRS Todo Example")
-         (form (,(data-on "submit" (sse-post "/todo/create")))
+         (form (,(data-on "submit" (post "/todo/create")))
                (input ((id "todo-input") (name "todo-input")
                                          (placeholder "What needs to be done?")
                                          ,(data-bind "input")))
@@ -49,7 +49,7 @@
                  (define tid (number->string (hash-ref todo 'id)))
                  `(li ,(hash-ref todo 'text)
                       " "
-                      (button (,(data-on "click" (sse-post (format "/todo/delete/~a" tid))))
+                      (button (,(data-on "click" (post (format "/todo/delete/~a" tid))))
                               "Delete"))))))
 
 ;; read side ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -58,10 +58,10 @@
   (define ch (subscribe!))
   (datastar-sse (lambda (sse)
                   (printf "Client connected~n")
-                  (patch-elements/xexpr sse (render-main))
+                  (patch-elements/xexprs sse (render-main))
                   (let loop ()
                     (define cmd (async-channel-get ch))
-                    (patch-elements/xexpr sse (render-main))
+                    (patch-elements/xexprs sse (render-main))
                     (when (eq? cmd 'create)
                       (patch-signals sse (hash 'input "")))
                     (loop)))

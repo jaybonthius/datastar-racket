@@ -104,9 +104,9 @@
       (patch-elements sse
                       "<p>content</p>"
                       #:selector "#target"
-                      #:mode patch-mode-inner
-                      #:namespace element-namespace-svg
-                      #:use-view-transitions #t
+                      #:mode 'inner
+                      #:namespace 'svg
+                      #:use-view-transitions? #t
                       #:event-id "e1"
                       #:retry-duration 3000)
       (define evt (first (get-events)))
@@ -128,7 +128,7 @@
 
     (test-case "make-recording-sse: only-if-missing signal"
       (define-values (sse get-events) (make-recording-sse))
-      (patch-signals sse "{\"x\":1}" #:only-if-missing #t)
+      (patch-signals sse "{\"x\":1}" #:only-if-missing? #t)
       (define evt (first (get-events)))
       (check-not-false (member "onlyIfMissing true" (sse-event-data-lines evt))))
 

@@ -1,23 +1,22 @@
 #lang racket/base
 
-(provide sse-get
-         sse-post
-         sse-put
-         sse-patch
-         sse-delete)
+(require "sugar/actions.rkt"
+         "sugar/attributes.rkt")
 
-(define (sse-action method url args)
-  (if args
-      (format "@~a('~a', ~a)" method url args)
-      (format "@~a('~a')" method url)))
+(provide (all-from-out "sugar/actions.rkt"
+                       "sugar/attributes.rkt")
+         datastar-version
+         datastar-cdn-url
+         datastar-cdn-map-url)
 
-(define (sse-get url [args #f])
-  (sse-action "get" url args))
-(define (sse-post url [args #f])
-  (sse-action "post" url args))
-(define (sse-put url [args #f])
-  (sse-action "put" url args))
-(define (sse-patch url [args #f])
-  (sse-action "patch" url args))
-(define (sse-delete url [args #f])
-  (sse-action "delete" url args))
+(define datastar-version "1.0.0-RC.8")
+
+(define datastar-cdn-url
+  (string-append "https://cdn.jsdelivr.net/gh/starfederation/datastar@"
+                 datastar-version
+                 "/bundles/datastar.js"))
+
+(define datastar-cdn-map-url
+  (string-append "https://cdn.jsdelivr.net/gh/starfederation/datastar@"
+                 datastar-version
+                 "/bundles/datastar.js.map"))

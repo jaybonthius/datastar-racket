@@ -13,7 +13,7 @@
 (define (handle-execute-script sse event)
   (execute-script sse
                   (hash-ref event 'script "")
-                  #:auto-remove (hash-ref event 'autoRemove #t)
+                  #:auto-remove? (hash-ref event 'autoRemove #t)
                   #:attributes (hash-ref event 'attributes #f)
                   #:event-id (hash-ref event 'eventId #f)
                   #:retry-duration (hash-ref event 'retryDuration #f)))
@@ -24,7 +24,7 @@
                   #:selector (hash-ref event 'selector #f)
                   #:mode (string->mode (hash-ref event 'mode #f))
                   #:namespace (string->namespace (hash-ref event 'namespace #f))
-                  #:use-view-transitions (hash-ref event 'useViewTransition #f)
+                  #:use-view-transitions? (hash-ref event 'useViewTransition #f)
                   #:event-id (hash-ref event 'eventId #f)
                   #:retry-duration (hash-ref event 'retryDuration #f)))
 
@@ -36,7 +36,7 @@
       [else (hash)]))
   (patch-signals sse
                  signals-data
-                 #:only-if-missing (hash-ref event 'onlyIfMissing #f)
+                 #:only-if-missing? (hash-ref event 'onlyIfMissing #f)
                  #:event-id (hash-ref event 'eventId #f)
                  #:retry-duration (hash-ref event 'retryDuration #f)))
 
@@ -47,10 +47,32 @@
                    #:retry-duration (hash-ref event 'retryDuration #f)))
 
 (define (handle-remove-signals sse event)
-  (patch-signals sse
-                 (hash)
-                 #:event-id (hash-ref event 'eventId #f)
-                 #:retry-duration (hash-ref event 'retryDuration #f)))
+  (define remove-payload
+    (cond
+      [(hash-has-key? event 'paths) (hash-ref event 'paths)]
+      [(hash-has-key? event 'signals) (hash-ref event 'signals)]
+      [else #f]))
+  (cond
+    [(string? remove-payload)
+     (remove-signals sse
+                     remove-payload
+                     #:event-id (hash-ref event 'eventId #f)
+                     #:retry-duration (hash-ref event 'retryDuration #f))]
+    [(and (list? remove-payload) (andmap string? remove-payload))
+     (remove-signals sse
+                     remove-payload
+                     #:event-id (hash-ref event 'eventId #f)
+                     #:retry-duration (hash-ref event 'retryDuration #f))]
+    [(hash? remove-payload)
+     (patch-signals sse
+                    remove-payload
+                    #:event-id (hash-ref event 'eventId #f)
+                    #:retry-duration (hash-ref event 'retryDuration #f))]
+    [else
+     (remove-signals sse
+                     '()
+                     #:event-id (hash-ref event 'eventId #f)
+                     #:retry-duration (hash-ref event 'retryDuration #f))]))
 
 (define event-handlers
   (hash "executeScript"
