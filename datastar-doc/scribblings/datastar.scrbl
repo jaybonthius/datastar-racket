@@ -1,7 +1,11 @@
 #lang scribble/doc
 
 @(require (for-label datastar
-                     racket/base)
+                     racket/base
+                     racket/contract
+                     web-server/safety-limits
+                     web-server/servlet-dispatch
+                     web-server/web-server)
           scribble/manual
           "datastar.rkt")
 
@@ -11,26 +15,18 @@
 
 @defmodule[datastar]
 
-Datastar is a hypermedia framework that provides backend reactivity like htmx, and frontend reactivity like Alpine.js in  lightweight frontend framework that doesn’t require any npm packages or other dependencies.
+Datastar is a lightweight hypermedia framework that provides backend reactivity like htmx and frontend reactivity like Alpine.js, without requiring npm packages or other dependencies.
 
-@link["https://data-star.dev"]{Datastar} is a hypermedia framework that provides JS client handles the frontend reactivity, and the server drives the UI over SSE:. 
+In @link["https://data-star.dev"]{Datastar}, the JavaScript client handles frontend reactivity, while the server drives UI updates over SSE.
 
 @itemlist[
   @item{@link["https://data-star.dev/reference/attributes"]{Attributes} bind signals, handle events, and add reactivity. @link["https://data-star.dev/reference/actions"]{Actions} like @tt|{@get()}| make requests to the server and communicate the frontend state via signals.}
   @item{The backend responds with SSE events that patch the DOM, update signals, and run scripts.}
 ]
 
-This Racket SDK provides server-side helpers for reading signals from requests and sending SSE events, as well as client-side helpers for generating @tt{data-*} attributes and action expressions.
+The Racket SDK provides server-side helpers for reading signals from requests and sending SSE events, as well as client-side helpers for generating @tt{data-*} attributes and action expressions.
 
 @local-table-of-contents[]
-
-@(require (for-label datastar
-                     racket/base
-                     racket/contract
-                     web-server/safety-limits
-                     web-server/servlet-dispatch
-                     web-server/web-server)
-          "datastar.rkt")
 
 
 @section{How Datastar Works}
@@ -50,7 +46,7 @@ On the frontend, include the Datastar client library via a script tag (see the @
 <div id="output"></div>
 }|
 
-The server responds with SSE events containing HTML elements. Datastar morphs those elements into the existing DOM by matching element IDs, updating only what changed. This is what the SDK helps with from Racket.
+The server responds with SSE events containing HTML elements. Datastar morphs those elements into the existing DOM by matching element IDs, updating only what changed. The SDK provides Racket helpers for this server-driven workflow.
 
 @section{Minimal Example}
 
@@ -93,7 +89,7 @@ For single-request updates, you can return a normal HTTP response using @racketm
 
 @section{Streaming Updates}
 
-For streaming updates, loop inside the callback. If the client disconnects or a send fails, an exception is raised which @racket[datastar-sse] catches automatically, triggering cleanup via @racket[on-close]:
+For streaming updates, loop inside the callback. If the client disconnects or a send fails, @racket[datastar-sse] catches the resulting exception and triggers cleanup via @racket[#:on-close]:
 
 @racketblock[
 (define (streaming-handler req)

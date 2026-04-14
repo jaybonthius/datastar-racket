@@ -32,7 +32,7 @@ URL for the source map corresponding to @racket[datastar-cdn-url].
 
 @defmodule[datastar/sugar/attributes]
 
-Functions for generating Datastar @tt{data-*} @link["https://data-star.dev/reference/attributes"]{HTML attributes} as x-expression attribute pairs. Helpers return @racket[(list 'attr-name "value")] and drop directly into x-expression templates via unquote. See the @link["https://data-star.dev/reference/attributes"]{Datastar attribute reference} for full? details on each attribute's behavior.
+Functions for generating Datastar @tt{data-*} @link["https://data-star.dev/reference/attributes"]{HTML attributes} as x-expression attribute pairs. Helpers return @racket[(list 'attr-name "value")] and drop directly into x-expression templates via unquote. See the @link["https://data-star.dev/reference/attributes"]{Datastar attribute reference} for full details on each attribute's behavior.
 
 Without attribute helpers:
 
@@ -61,7 +61,7 @@ Generates keyed @link["https://data-star.dev/reference/attributes#data-attr"]{@t
 ]
 }
 
-@defproc[(data-attr/hash [pairs hash?]) list?]{
+@defproc[(data-attr/hash [pairs hash-values/c]) list?]{
 Generates value-form @link["https://data-star.dev/reference/attributes#data-attr"]{@tt{data-attr}} from a hash of attribute names to expressions.
 
 @examples[#:eval ev #:label #f
@@ -102,7 +102,7 @@ Generates keyed @link["https://data-star.dev/reference/attributes#data-class"]{@
 ]
 }
 
-@defproc[(data-class/hash [pairs hash?]) list?]{
+@defproc[(data-class/hash [pairs hash-values/c]) list?]{
 Generates value-form @link["https://data-star.dev/reference/attributes#data-class"]{@tt{data-class}} from a hash of class names to expressions.
 
 @examples[#:eval ev #:label #f
@@ -126,7 +126,7 @@ Generates keyed @link["https://data-star.dev/reference/attributes#data-computed"
 ]
 }
 
-@defproc[(data-computed/hash [pairs hash?]) list?]{
+@defproc[(data-computed/hash [pairs computed-hash/c]) list?]{
 Generates value-form @link["https://data-star.dev/reference/attributes#data-computed"]{@tt{data-computed}} from a hash of signal names to callable expression strings.
 
 @examples[#:eval ev #:label #f
@@ -166,7 +166,7 @@ Generates a @link["https://data-star.dev/reference/attributes#data-ignore-morph"
 
 @defproc[(data-indicator [signal string?]
                          [#:case case (or/c 'camel 'kebab 'snake 'pascal #f) #f]) list?]{
-Generates a @link["https://data-star.dev/reference/attributes#data-indicator"]{@tt{data-indicator}} attribute that creates signal and sets its value to @tt{true} while a fetch request is in flight, otherwise @tt{false}.
+Generates a @link["https://data-star.dev/reference/attributes#data-indicator"]{@tt{data-indicator}} attribute that creates a signal and sets its value to @tt{true} while a fetch request is in flight, otherwise @tt{false}.
 
 This SDK uses keyed form only (@tt{data-indicator:signal}).
 
@@ -224,7 +224,7 @@ Generates a @link["https://data-star.dev/reference/attributes#data-json-signals"
                 [#:throttle-trailing? throttle-trailing? boolean? #f]
                 [#:delay delay (or/c string? number? #f) #f]
                 [#:viewtransition? viewtransition? boolean? #f]) list?]{
-Generates a @link["https://data-star.dev/reference/attributes#data-on"]{@tt{data-on}} attribute that attaches event listener to element, executing @racket[expression] whenever @racket[event] is triggered. Keyword arguments correspond to Datastar modifiers.
+Generates a @link["https://data-star.dev/reference/attributes#data-on"]{@tt{data-on}} attribute that attaches an event listener to an element and executes @racket[expression] whenever @racket[event] is triggered. Keyword arguments correspond to Datastar modifiers.
 
 @examples[#:eval ev #:label #f
 (data-on "click" "$count++")
@@ -297,7 +297,7 @@ Generates a @link["https://data-star.dev/reference/attributes#data-on-interval"]
                              [#:delay delay (or/c string? number? #f) #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-on-signal-patch"]{@tt{data-on-signal-patch}} attribute that runs @racket[expression] whenever any signals are patched.
 
-Use @racket[data-on-signal-patch-filter] as a separate helper when you want include/exclude filtering.
+Use @racket[data-on-signal-patch-filter] as a separate helper when you want to apply include/exclude filtering.
 
 @examples[#:eval ev #:label #f
 `(div (,(data-on-signal-patch "console.log('patched')")))
@@ -313,7 +313,7 @@ Use @racket[data-on-signal-patch-filter] as a separate helper when you want incl
                                     [#:exclude exclude (or/c string? #f) #f]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-on-signal-patch-filter"]{@tt{data-on-signal-patch-filter}} attribute directly.
 
-Use this helper when you want to construct filter? attribute separately from @racket[data-on-signal-patch].
+Use this helper when you want to construct the @tt{data-on-signal-patch-filter} attribute separately from @racket[data-on-signal-patch].
 
 @examples[#:eval ev #:label #f
 `(div (,(data-on-signal-patch "console.log(patch)")
@@ -322,9 +322,9 @@ Use this helper when you want to construct filter? attribute separately from @ra
 }
 
 @defproc[(data-preserve-attrs [attrs (or/c string? (listof string?))]) list?]{
-Generates a @link["https://data-star.dev/reference/attributes#data-preserve-attr"]{@tt{data-preserve-attr}} attribute that preserves value of specified attributes when morphing DOM elements.
+Generates a @link["https://data-star.dev/reference/attributes#data-preserve-attr"]{@tt{data-preserve-attr}} attribute that preserves the values of specified attributes when morphing DOM elements.
 
-@racket[attrs] can be single attribute-name string or list of attribute-name strings.
+@racket[attrs] can be a single attribute-name string or a list of attribute-name strings.
 
 Preserve @tt{open} attribute on @tt{<details>} element:
 
@@ -349,7 +349,7 @@ Alias of @racket[data-preserve-attrs].
 
 @defproc[(data-ref [signal string?]
                    [#:case case (or/c 'camel 'kebab 'snake 'pascal #f) #f]) list?]{
-Generates a @link["https://data-star.dev/reference/attributes#data-ref"]{@tt{data-ref}} attribute that creates signal reference to element where attribute is placed.
+Generates a @link["https://data-star.dev/reference/attributes#data-ref"]{@tt{data-ref}} attribute that creates a signal reference to the element where the attribute is placed.
 
 This SDK uses keyed form only (@tt{data-ref:signal}).
 
@@ -391,7 +391,7 @@ When @racket[#:ifmissing?] is @racket[#t], the signal is only set when missing.
 ]
 }
 
-@defproc[(data-signals/hash [signals hash?]
+@defproc[(data-signals/hash [signals signals-hash/c]
                           [#:ifmissing? ifmissing? boolean? #f]) list?]{
 Generates value-form @link["https://data-star.dev/reference/attributes#data-signals"]{@tt{data-signals}} from a hash serialized as JSON.
 
@@ -415,7 +415,7 @@ Generates keyed @link["https://data-star.dev/reference/attributes#data-style"]{@
 ]
 }
 
-@defproc[(data-style/hash [pairs hash?]) list?]{
+@defproc[(data-style/hash [pairs hash-values/c]) list?]{
 Generates value-form @link["https://data-star.dev/reference/attributes#data-style"]{@tt{data-style}} from a hash of CSS properties to expressions.
 
 @examples[#:eval ev #:label #f
@@ -594,13 +594,13 @@ Backend actions send HTTP requests and handle SSE responses. Signals transmit by
               [#:filter-signals-exclude filter-signals-exclude (or/c string? #f) #f]
               [#:selector selector (or/c string? #f) #f]
               [#:headers headers (or/c hash? #f) #f]
-              [#:open-when-hidden? open-when-hidden? boolean? #f]
+              [#:open-when-hidden? open-when-hidden? boolean? 'unset]
               [#:payload payload (or/c string? #f) #f]
               [#:retry retry (or/c 'auto 'error 'always 'never #f) #f]
-              [#:retry-interval retry-interval (or/c exact-nonneg-integer? #f) #f]
+              [#:retry-interval retry-interval (or/c exact-nonnegative-integer? #f) #f]
               [#:retry-scaler retry-scaler (or/c number? #f) #f]
-              [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonneg-integer? #f) #f]
-              [#:retry-max-count retry-max-count (or/c exact-nonneg-integer? #f) #f]
+              [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonnegative-integer? #f) #f]
+              [#:retry-max-count retry-max-count (or/c exact-nonnegative-integer? #f) #f]
               [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string? #f) #f])
          string?]{
 Returns a @link["https://data-star.dev/reference/actions#get"]{@tt{@"@"get}} action string. Pass only the options you want; omitted options use @link["https://data-star.dev/reference/actions#options"]{Datastar's built-in defaults}.
@@ -641,13 +641,13 @@ The @racket[#:payload] keyword accepts a raw JavaScript expression string. The @
                [#:filter-signals-exclude filter-signals-exclude (or/c string? #f) #f]
                [#:selector selector (or/c string? #f) #f]
                [#:headers headers (or/c hash? #f) #f]
-               [#:open-when-hidden? open-when-hidden? boolean? #f]
+               [#:open-when-hidden? open-when-hidden? boolean? 'unset]
                [#:payload payload (or/c string? #f) #f]
                [#:retry retry (or/c 'auto 'error 'always 'never #f) #f]
-               [#:retry-interval retry-interval (or/c exact-nonneg-integer? #f) #f]
+               [#:retry-interval retry-interval (or/c exact-nonnegative-integer? #f) #f]
                [#:retry-scaler retry-scaler (or/c number? #f) #f]
-               [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonneg-integer? #f) #f]
-               [#:retry-max-count retry-max-count (or/c exact-nonneg-integer? #f) #f]
+               [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonnegative-integer? #f) #f]
+               [#:retry-max-count retry-max-count (or/c exact-nonnegative-integer? #f) #f]
                [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string? #f) #f])
           string?]{
 Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#post"]{@tt{@"@"post}} action string that sends a POST request.
@@ -663,13 +663,13 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
               [#:filter-signals-exclude filter-signals-exclude (or/c string? #f) #f]
               [#:selector selector (or/c string? #f) #f]
               [#:headers headers (or/c hash? #f) #f]
-              [#:open-when-hidden? open-when-hidden? boolean? #f]
+              [#:open-when-hidden? open-when-hidden? boolean? 'unset]
               [#:payload payload (or/c string? #f) #f]
               [#:retry retry (or/c 'auto 'error 'always 'never #f) #f]
-              [#:retry-interval retry-interval (or/c exact-nonneg-integer? #f) #f]
+              [#:retry-interval retry-interval (or/c exact-nonnegative-integer? #f) #f]
               [#:retry-scaler retry-scaler (or/c number? #f) #f]
-              [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonneg-integer? #f) #f]
-              [#:retry-max-count retry-max-count (or/c exact-nonneg-integer? #f) #f]
+              [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonnegative-integer? #f) #f]
+              [#:retry-max-count retry-max-count (or/c exact-nonnegative-integer? #f) #f]
               [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string? #f) #f])
          string?]{
 Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#put"]{@tt{@"@"put}} action string that sends a PUT request.
@@ -681,13 +681,13 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
                 [#:filter-signals-exclude filter-signals-exclude (or/c string? #f) #f]
                 [#:selector selector (or/c string? #f) #f]
                 [#:headers headers (or/c hash? #f) #f]
-                [#:open-when-hidden? open-when-hidden? boolean? #f]
+                [#:open-when-hidden? open-when-hidden? boolean? 'unset]
                 [#:payload payload (or/c string? #f) #f]
                 [#:retry retry (or/c 'auto 'error 'always 'never #f) #f]
-                [#:retry-interval retry-interval (or/c exact-nonneg-integer? #f) #f]
+                [#:retry-interval retry-interval (or/c exact-nonnegative-integer? #f) #f]
                 [#:retry-scaler retry-scaler (or/c number? #f) #f]
-                [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonneg-integer? #f) #f]
-                [#:retry-max-count retry-max-count (or/c exact-nonneg-integer? #f) #f]
+                [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonnegative-integer? #f) #f]
+                [#:retry-max-count retry-max-count (or/c exact-nonnegative-integer? #f) #f]
                 [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string? #f) #f])
            string?]{
 Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#patch"]{@tt{@"@"patch}} action string that sends a PATCH request.
@@ -699,13 +699,13 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
                  [#:filter-signals-exclude filter-signals-exclude (or/c string? #f) #f]
                  [#:selector selector (or/c string? #f) #f]
                  [#:headers headers (or/c hash? #f) #f]
-                 [#:open-when-hidden? open-when-hidden? boolean? #f]
+                 [#:open-when-hidden? open-when-hidden? boolean? 'unset]
                  [#:payload payload (or/c string? #f) #f]
                  [#:retry retry (or/c 'auto 'error 'always 'never #f) #f]
-                 [#:retry-interval retry-interval (or/c exact-nonneg-integer? #f) #f]
+                 [#:retry-interval retry-interval (or/c exact-nonnegative-integer? #f) #f]
                  [#:retry-scaler retry-scaler (or/c number? #f) #f]
-                 [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonneg-integer? #f) #f]
-                 [#:retry-max-count retry-max-count (or/c exact-nonneg-integer? #f) #f]
+                 [#:retry-max-wait-ms retry-max-wait-ms (or/c exact-nonnegative-integer? #f) #f]
+                 [#:retry-max-count retry-max-count (or/c exact-nonnegative-integer? #f) #f]
                  [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string? #f) #f])
             string?]{
 Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#delete"]{@tt{@"@"delete}} action string that sends a DELETE request.
