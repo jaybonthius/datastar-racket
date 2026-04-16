@@ -9,60 +9,60 @@
          racket/unit
          web-server/http
          xml
-         "../../private/constants.rkt"
-         "../../private/sse.rkt"
-         "../../private/utils.rkt"
-         "../../private/xexpr.rkt")
+         "../private/constants.rkt"
+         "../private/sse.rkt"
+         "../private/utils.rkt"
+         "../private/xexpr.rkt")
 
-(define element-patch-mode/c (or/c 'outer 'inner 'remove 'replace 'prepend 'append 'before 'after #f))
-(define element-namespace/c (or/c 'html 'svg 'mathml #f))
+(define element-patch-mode/c (or/c 'outer 'inner 'remove 'replace 'prepend 'append 'before 'after))
+(define element-namespace/c (or/c 'html 'svg 'mathml))
 
 (provide element-patch-mode/c
          element-namespace/c
          (contract-out
-          [datastar-sse (->* [(-> sse? any)] [#:on-close (or/c (-> sse? any) #f)] response?)]
+          [datastar-sse (->* [(-> sse? any)] [#:on-close (-> sse? any)] response?)]
           [close-sse (-> sse? void?)]
           [sse-closed? (-> sse? boolean?)]
           [sse? (-> any/c boolean?)]
           [call-with-sse-lock (-> sse? (-> any) any)]
           [patch-elements
            (->* [sse? (or/c string? #f)]
-                [#:selector (or/c string? #f)
+                [#:selector string?
                  #:mode element-patch-mode/c
                  #:namespace element-namespace/c
-                 #:use-view-transitions? (or/c boolean? #f)
-                 #:event-id (or/c string? #f)
-                 #:retry-duration (or/c exact-positive-integer? #f)]
+                 #:use-view-transitions? boolean?
+                 #:event-id string?
+                 #:retry-duration exact-positive-integer?]
                 void?)]
           [patch-elements/xexprs
            (->* [sse? (or/c xexpr/c (listof xexpr/c))]
-                [#:selector (or/c string? #f)
+                [#:selector string?
                  #:mode element-patch-mode/c
                  #:namespace element-namespace/c
-                 #:use-view-transitions? (or/c boolean? #f)
-                 #:event-id (or/c string? #f)
-                 #:retry-duration (or/c exact-positive-integer? #f)]
+                 #:use-view-transitions? boolean?
+                 #:event-id string?
+                 #:retry-duration exact-positive-integer?]
                 void?)]
           [remove-elements
            (->* [sse? string?]
-                [#:event-id (or/c string? #f) #:retry-duration (or/c exact-positive-integer? #f)]
+                [#:event-id string? #:retry-duration exact-positive-integer?]
                 void?)]
           [patch-signals
            (->* [sse? (or/c string? jsexpr?)]
-                [#:event-id (or/c string? #f)
-                 #:only-if-missing? (or/c boolean? #f)
-                 #:retry-duration (or/c exact-positive-integer? #f)]
+                [#:event-id string?
+                 #:only-if-missing? boolean?
+                 #:retry-duration exact-positive-integer?]
                 void?)]
           [remove-signals
            (->* [sse? (or/c string? (listof string?))]
-                [#:event-id (or/c string? #f) #:retry-duration (or/c exact-positive-integer? #f)]
+                [#:event-id string? #:retry-duration exact-positive-integer?]
                 void?)]
           [execute-script
            (->* [sse? string?]
                 [#:auto-remove? boolean?
-                 #:attributes (or/c (hash/c symbol? any/c) (listof string?) #f)
-                 #:event-id (or/c string? #f)
-                 #:retry-duration (or/c exact-positive-integer? #f)]
+                 #:attributes (or/c (hash/c symbol? any/c) (listof string?))
+                 #:event-id string?
+                 #:retry-duration exact-positive-integer?]
                 void?)]
           [redirect (-> sse? string? void?)]
           [replace-url (-> sse? string? void?)]
@@ -228,8 +228,8 @@
                (current-datastar-input-port ip)
                (values ip op)))
 
-(define (close-sse gen)
-  (set-box! (sse-closed-box gen) #t))
+(define (close-sse sse)
+  (set-box! (sse-closed-box sse) #t))
 
 (define (datastar-sse on-open #:on-close [on-close #f])
   (define extra-headers
@@ -242,7 +242,7 @@
             #"text/event-stream"
             extra-headers
             (lambda (out)
-              (define gen (make-sse out (make-semaphore 1) (box #f) (make-thread-cell #f #f)))
+              (define sse (make-sse out (make-semaphore 1) (box #f) (make-thread-cell #f #f)))
               (define on-open-thread (current-thread))
               (define monitor-thread
                 (and ip
@@ -253,22 +253,22 @@
                             (lambda ()
                               (with-handlers ([exn:break? void]
                                               [exn:fail? void])
-                                (on-open gen)))
+                                (on-open sse)))
                             (lambda ()
                               (when monitor-thread
                                 (kill-thread monitor-thread))
-                              (close-sse gen)
+                              (close-sse sse)
                               (when on-close
-                                (on-close gen)))))))
+                                (on-close sse)))))))
 
-(define-syntax-rule (with-sse-lock gen body ...)
-  (call-with-sse-lock gen
+(define-syntax-rule (with-sse-lock sse body ...)
+  (call-with-sse-lock sse
                       (lambda ()
                         body ...)))
 
 ;; sse events API ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (patch-elements gen
+(define (patch-elements sse
                         elements
                         #:selector [selector #f]
                         #:mode [mode #f]
@@ -276,7 +276,7 @@
                         #:use-view-transitions? [use-view-transitions? #f]
                         #:event-id [event-id #f]
                         #:retry-duration [retry-duration #f])
-  (sse-send gen
+  (sse-send sse
             (build-patch-elements elements
                                   #:selector selector
                                   #:mode mode
@@ -285,15 +285,15 @@
                                   #:event-id event-id
                                   #:retry-duration retry-duration)))
 
-(define (remove-elements gen selector #:event-id [event-id #f] #:retry-duration [retry-duration #f])
-  (patch-elements gen
+(define (remove-elements sse selector #:event-id [event-id #f] #:retry-duration [retry-duration #f])
+  (patch-elements sse
                   #f
                   #:selector selector
                   #:mode 'remove
                   #:event-id event-id
                   #:retry-duration retry-duration))
 
-(define (patch-elements/xexprs gen
+(define (patch-elements/xexprs sse
                                xexpr-or-xexprs
                                #:selector [selector #f]
                                #:mode [mode #f]
@@ -301,7 +301,7 @@
                                #:use-view-transitions? [use-view-transitions? #f]
                                #:event-id [event-id #f]
                                #:retry-duration [retry-duration #f])
-  (patch-elements gen
+  (patch-elements sse
                   (xexpr-or-xexprs->html xexpr-or-xexprs)
                   #:selector selector
                   #:mode mode
@@ -310,18 +310,18 @@
                   #:event-id event-id
                   #:retry-duration retry-duration))
 
-(define (patch-signals gen
+(define (patch-signals sse
                        signals
                        #:event-id [event-id #f]
                        #:only-if-missing? [only-if-missing? #f]
                        #:retry-duration [retry-duration #f])
-  (sse-send gen
+  (sse-send sse
             (build-patch-signals signals
                                  #:event-id event-id
                                  #:only-if-missing? only-if-missing?
                                  #:retry-duration retry-duration)))
 
-(define (remove-signals gen
+(define (remove-signals sse
                         signal-path-or-paths
                         #:event-id [event-id #f]
                         #:retry-duration [retry-duration #f])
@@ -329,34 +329,34 @@
     (if (string? signal-path-or-paths)
         (list signal-path-or-paths)
         signal-path-or-paths))
-  (patch-signals gen
+  (patch-signals sse
                  (build-remove-signals-jsexpr signal-paths)
                  #:event-id event-id
                  #:retry-duration retry-duration))
 
-(define (execute-script gen
+(define (execute-script sse
                         script
                         #:auto-remove? [auto-remove? #t]
                         #:attributes [attributes #f]
                         #:event-id [event-id #f]
                         #:retry-duration [retry-duration #f])
-  (sse-send gen
+  (sse-send sse
             (build-execute-script script
                                   #:auto-remove? auto-remove?
                                   #:attributes attributes
                                   #:event-id event-id
                                   #:retry-duration retry-duration)))
 
-(define (redirect gen location)
-  (execute-script gen
+(define (redirect sse location)
+  (execute-script sse
                   (format "setTimeout(() => window.location = '~a')" (escape-js-string location))))
 
-(define (replace-url gen location)
-  (execute-script gen
+(define (replace-url sse location)
+  (execute-script sse
                   (format "window.history.replaceState({}, '', '~a')" (escape-js-string location))))
 
-(define (console-log gen message)
-  (execute-script gen (format "console.log('~a')" (escape-js-string message))))
+(define (console-log sse message)
+  (execute-script sse (format "console.log('~a')" (escape-js-string message))))
 
-(define (console-error gen message)
-  (execute-script gen (format "console.error('~a')" (escape-js-string message))))
+(define (console-error sse message)
+  (execute-script sse (format "console.error('~a')" (escape-js-string message))))

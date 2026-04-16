@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require datastar/http/response
+         datastar/http/sse
          (only-in datastar/private/sse make-test-sse get-test-output)
          json
          racket/string
@@ -51,6 +52,16 @@
       (check-equal? (find-header resp "datastar-namespace") "svg")
       (check-equal? (find-header resp "datastar-use-view-transition") "true")
       (check-equal? (find-header resp "x-test") "yes"))
+
+    (test-case "response/datastar-elements explicit serializer defaults are omitted"
+      (define resp
+        (response/datastar-elements "<div>content</div>"
+                                    #:mode 'outer
+                                    #:namespace 'html
+                                    #:use-view-transitions? #f))
+      (check-false (find-header resp "datastar-mode"))
+      (check-false (find-header resp "datastar-namespace"))
+      (check-false (find-header resp "datastar-use-view-transition")))
 
     (test-case "response/datastar-elements/xexprs single"
       (define resp (response/datastar-elements/xexprs '(div ((id "target")) "hello")))
@@ -107,9 +118,16 @@
       (check-exn exn:fail:contract?
                  (lambda () (response/datastar-elements "<div/>" #:namespace 'invalid)))
       (check-exn exn:fail:contract? (lambda () (response/datastar-elements "<div/>" #:status 0)))
+      (check-exn exn:fail:contract? (lambda () (response/datastar-elements "<div/>" #:selector #f)))
+      (check-exn exn:fail:contract? (lambda () (response/datastar-elements "<div/>" #:mode #f)))
+      (check-exn exn:fail:contract? (lambda () (response/datastar-elements "<div/>" #:namespace #f)))
+      (check-exn exn:fail:contract? (lambda () (response/datastar-elements "<div/>" #:headers #f)))
       (check-exn exn:fail:contract? (lambda () (response/datastar-elements "<div/>" #:headers '())))
+      (check-exn exn:fail:contract? (lambda () (response/datastar-signals (hash 'x 1) #:headers #f)))
       (check-exn exn:fail:contract?
-                 (lambda () (response/datastar-script "x" #:attributes (hash 1 "v")))))))
+                 (lambda () (response/datastar-script "x" #:attributes (hash 1 "v"))))
+      (check-exn exn:fail:contract? (lambda () (response/datastar-script "x" #:attributes #f)))
+      (check-exn exn:fail:contract? (lambda () (response/datastar-script "x" #:headers #f))))))
 
 (define elements-tests
   (test-suite "elements"
@@ -148,6 +166,18 @@
       (patch-elements gen "<div>test</div>" #:mode 'outer)
       (define result (get-test-output out))
       (check-false (string-contains? result "mode")))
+
+    (test-case "default namespace html is omitted"
+      (define-values (gen out) (make-test-sse))
+      (patch-elements gen "<div>test</div>" #:namespace 'html)
+      (define result (get-test-output out))
+      (check-false (string-contains? result "namespace html")))
+
+    (test-case "default useViewTransition false is omitted"
+      (define-values (gen out) (make-test-sse))
+      (patch-elements gen "<div>test</div>" #:use-view-transitions? #f)
+      (define result (get-test-output out))
+      (check-false (string-contains? result "useViewTransition false")))
 
     (test-case "default retry duration 1000 is omitted"
       (define-values (gen out) (make-test-sse))
@@ -260,6 +290,12 @@
       (define result (get-test-output out))
       (check-true (string-contains? result "data: onlyIfMissing true")))
 
+    (test-case "patch-signals default only-if-missing false is omitted"
+      (define-values (gen out) (make-test-sse))
+      (patch-signals gen (hash 'x 1) #:only-if-missing? #f)
+      (define result (get-test-output out))
+      (check-false (string-contains? result "onlyIfMissing false")))
+
     (test-case "remove-signals with single path produces null patch"
       (define-values (gen out) (make-test-sse))
       (remove-signals gen "count")
@@ -347,6 +383,24 @@
 
 (define sse-tests
   (test-suite "sse"
+
+    (test-case "sse helpers reject explicit #f for omission-sensitive keywords"
+      (define-values (gen _out) (make-test-sse))
+      (check-exn exn:fail:contract? (lambda () (datastar-sse (lambda (_sse) (void)) #:on-close #f)))
+      (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:selector #f)))
+      (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:mode #f)))
+      (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:namespace #f)))
+      (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:event-id #f)))
+      (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:retry-duration #f)))
+      (check-exn exn:fail:contract? (lambda () (remove-elements gen "#x" #:event-id #f)))
+      (check-exn exn:fail:contract? (lambda () (remove-elements gen "#x" #:retry-duration #f)))
+      (check-exn exn:fail:contract? (lambda () (patch-signals gen (hash 'x 1) #:event-id #f)))
+      (check-exn exn:fail:contract? (lambda () (patch-signals gen (hash 'x 1) #:retry-duration #f)))
+      (check-exn exn:fail:contract? (lambda () (remove-signals gen "x" #:event-id #f)))
+      (check-exn exn:fail:contract? (lambda () (remove-signals gen "x" #:retry-duration #f)))
+      (check-exn exn:fail:contract? (lambda () (execute-script gen "x" #:attributes #f)))
+      (check-exn exn:fail:contract? (lambda () (execute-script gen "x" #:event-id #f)))
+      (check-exn exn:fail:contract? (lambda () (execute-script gen "x" #:retry-duration #f))))
 
     (test-case "send succeeds on open connection"
       (define-values (gen _out) (make-test-sse))

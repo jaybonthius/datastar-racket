@@ -1,6 +1,7 @@
 #lang racket
 
 (require datastar/sugar
+         racket/contract/base
          rackunit
          xml)
 
@@ -37,6 +38,9 @@
     (test-case "content-type json"
       (check-equal? (post "/submit" #:content-type 'json) "@post('/submit', {contentType: 'json'})"))
 
+    (test-case "get content-type json is pass-through"
+      (check-equal? (get "/events" #:content-type 'json) "@get('/events', {contentType: 'json'})"))
+
     ;; filter-signals ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (test-case "filter-signals include only"
@@ -66,15 +70,44 @@
 
     ;; open-when-hidden ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    (test-case "open-when-hidden true"
-      (check-equal? (get "/events" #:open-when-hidden? #t) "@get('/events', {openWhenHidden: true})"))
+    (test-case "open-when-hidden omitted omits openWhenHidden for all backend methods"
+      (for ([actual (list (get "/events" #:retry 'never)
+                          (post "/submit" #:retry 'never)
+                          (put "/update" #:retry 'never)
+                          (patch "/data" #:retry 'never)
+                          (delete "/item" #:retry 'never))]
+            [expected (list "@get('/events', {retry: 'never'})"
+                            "@post('/submit', {retry: 'never'})"
+                            "@put('/update', {retry: 'never'})"
+                            "@patch('/data', {retry: 'never'})"
+                            "@delete('/item', {retry: 'never'})")])
+        (check-equal? actual expected)))
 
-    (test-case "open-when-hidden false"
-      (check-equal? (post "/submit" #:open-when-hidden? #f)
-                    "@post('/submit', {openWhenHidden: false})"))
+    (test-case "open-when-hidden true for all backend methods"
+      (for ([actual (list (get "/events" #:open-when-hidden? #t)
+                          (post "/submit" #:open-when-hidden? #t)
+                          (put "/update" #:open-when-hidden? #t)
+                          (patch "/data" #:open-when-hidden? #t)
+                          (delete "/item" #:open-when-hidden? #t))]
+            [expected (list "@get('/events', {openWhenHidden: true})"
+                            "@post('/submit', {openWhenHidden: true})"
+                            "@put('/update', {openWhenHidden: true})"
+                            "@patch('/data', {openWhenHidden: true})"
+                            "@delete('/item', {openWhenHidden: true})")])
+        (check-equal? actual expected)))
 
-    (test-case "open-when-hidden unset (not included)"
-      (check-equal? (get "/events" #:retry 'never) "@get('/events', {retry: 'never'})"))
+    (test-case "open-when-hidden false for all backend methods"
+      (for ([actual (list (get "/events" #:open-when-hidden? #f)
+                          (post "/submit" #:open-when-hidden? #f)
+                          (put "/update" #:open-when-hidden? #f)
+                          (patch "/data" #:open-when-hidden? #f)
+                          (delete "/item" #:open-when-hidden? #f))]
+            [expected (list "@get('/events', {openWhenHidden: false})"
+                            "@post('/submit', {openWhenHidden: false})"
+                            "@put('/update', {openWhenHidden: false})"
+                            "@patch('/data', {openWhenHidden: false})"
+                            "@delete('/item', {openWhenHidden: false})")])
+        (check-equal? actual expected)))
 
     ;; payload ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -168,22 +201,38 @@
       (check-equal? (delete "/item" #:request-cancellation 'disabled)
                     "@delete('/item', {requestCancellation: 'disabled'})"))
 
+    (test-case "get accepts keyword before positional url"
+      (check-equal? (get #:retry 'never "/foo") "@get('/foo', {retry: 'never'})"))
+
     (test-case "get rejects invalid arguments"
       (check-exn exn:fail:contract? (lambda () (get 123)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:content-type 'xml)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:content-type #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:filter-signals-include 123)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:filter-signals-include #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:filter-signals-exclude 123)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:filter-signals-exclude #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:selector 123)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:selector #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:headers '("X" "Y"))))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:headers #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:open-when-hidden? 'yes)))
-      (check-exn exn:fail:contract? (lambda () (get "/events" #:open-when-hidden? 'unset)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:open-when-hidden? 1)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:payload 123)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:payload #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry 'sometimes)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry #f)))
+      (check-exn exn:fail:contract? (lambda () (get #:retry #f "/foo")))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-interval -1)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-interval #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-scaler "2")))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-scaler #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-wait-ms -1)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-wait-ms #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-count -1)))
-      (check-exn exn:fail:contract? (lambda () (get "/events" #:request-cancellation 123))))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-count #f)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:request-cancellation 123)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:request-cancellation #f))))
 
     (test-case "other backend methods enforce url contract"
       (check-exn exn:fail:contract? (lambda () (post 123)))
@@ -220,7 +269,9 @@
     (test-case "set-all rejects invalid arguments"
       (check-exn exn:fail:contract? (lambda () (set-all 123)))
       (check-exn exn:fail:contract? (lambda () (set-all "x" #:include 123)))
-      (check-exn exn:fail:contract? (lambda () (set-all "x" #:exclude 123))))
+      (check-exn exn:fail:contract? (lambda () (set-all "x" #:include #f)))
+      (check-exn exn:fail:contract? (lambda () (set-all "x" #:exclude 123)))
+      (check-exn exn:fail:contract? (lambda () (set-all "x" #:exclude #f))))
 
     ;; toggle-all ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -236,7 +287,9 @@
 
     (test-case "toggle-all rejects invalid arguments"
       (check-exn exn:fail:contract? (lambda () (toggle-all #:include 123)))
-      (check-exn exn:fail:contract? (lambda () (toggle-all #:exclude 123))))
+      (check-exn exn:fail:contract? (lambda () (toggle-all #:include #f)))
+      (check-exn exn:fail:contract? (lambda () (toggle-all #:exclude 123)))
+      (check-exn exn:fail:contract? (lambda () (toggle-all #:exclude #f))))
 
     ;; expression chaining ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -290,7 +343,7 @@
     (test-case "clipboard rejects invalid arguments"
       (check-exn exn:fail:contract? (lambda () (clipboard 123)))
       (check-exn exn:fail:contract? (lambda () (clipboard "'x'" #:base64? 'yes)))
-      (check-exn exn:fail:contract? (lambda () (clipboard "'x'" #:base64? 'unset))))
+      (check-exn exn:fail:contract? (lambda () (clipboard "'x'" #:base64? 1))))
 
     ;; fit ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -315,9 +368,43 @@
       (check-exn exn:fail:contract? (lambda () (fit 1 0 100 0 10)))
       (check-exn exn:fail:contract? (lambda () (fit "$x" "0" 100 0 10)))
       (check-exn exn:fail:contract? (lambda () (fit "$x" 0 100 0 10 #:clamp? 'yes)))
-      (check-exn exn:fail:contract? (lambda () (fit "$x" 0 100 0 10 #:clamp? 'unset)))
+      (check-exn exn:fail:contract? (lambda () (fit "$x" 0 100 0 10 #:clamp? 1)))
       (check-exn exn:fail:contract? (lambda () (fit "$x" 0 100 0 10 #:round? 'yes)))
-      (check-exn exn:fail:contract? (lambda () (fit "$x" 0 100 0 10 #:round? 'unset))))
+      (check-exn exn:fail:contract? (lambda () (fit "$x" 0 100 0 10 #:round? 1))))
+
+    (test-case "omission sentinels are not valid caller inputs"
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:content-type the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:filter-signals-include the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:filter-signals-exclude the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:selector the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:headers the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:open-when-hidden? the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:payload the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:retry the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:retry-interval the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:retry-scaler the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:retry-max-wait-ms the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:retry-max-count the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (get "/events" #:request-cancellation the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (clipboard "'x'" #:base64? the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (fit "$x" 0 100 0 10 #:clamp? the-unsupplied-arg)))
+      (check-exn exn:fail:contract?
+                 (lambda () (fit "$x" 0 100 0 10 #:round? the-unsupplied-arg))))
 
     ;; intl ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -344,7 +431,9 @@
       (check-exn exn:fail:contract? (lambda () (intl 123 "$val")))
       (check-exn exn:fail:contract? (lambda () (intl "'number'" 123)))
       (check-exn exn:fail:contract? (lambda () (intl "'number'" "$val" #:options "{}")))
-      (check-exn exn:fail:contract? (lambda () (intl "'number'" "$val" #:locale 123))))))
+      (check-exn exn:fail:contract? (lambda () (intl "'number'" "$val" #:options #f)))
+      (check-exn exn:fail:contract? (lambda () (intl "'number'" "$val" #:locale 123)))
+      (check-exn exn:fail:contract? (lambda () (intl "'number'" "$val" #:locale #f))))))
 
 (define attributes-tests
   (test-suite "attributes"
@@ -381,6 +470,9 @@
       (check-equal? (data-bind "foo") (list 'data-bind:foo ""))
       (check-equal? (xexpr->string `(input (,(data-bind "foo")))) "<input data-bind:foo=\"\"/>"))
 
+    (test-case "data-bind with symbol"
+      (check-equal? (data-bind 'foo) (list 'data-bind:foo "")))
+
     (test-case "data-bind rejects #:as keyword"
       (check-exn exn:fail? (lambda () (data-bind "foo" #:as 'value))))
 
@@ -398,6 +490,9 @@
       (check-equal? (data-ref "foo") (list 'data-ref:foo ""))
       (check-equal? (xexpr->string `(div (,(data-ref "myEl")) "")) "<div data-ref:myEl=\"\"></div>"))
 
+    (test-case "data-ref with symbol"
+      (check-equal? (data-ref 'my-el) (list 'data-ref:my-el "")))
+
     (test-case "data-ref rejects #:as keyword"
       (check-exn exn:fail? (lambda () (data-ref "foo" #:as 'value))))
 
@@ -412,6 +507,9 @@
       (check-equal? (data-indicator "fetching") (list 'data-indicator:fetching ""))
       (check-equal? (xexpr->string `(button (,(data-indicator "fetching")) "Go"))
                     "<button data-indicator:fetching=\"\">Go</button>"))
+
+    (test-case "data-indicator with symbol"
+      (check-equal? (data-indicator 'is-loading) (list 'data-indicator:is-loading "")))
 
     (test-case "data-indicator rejects #:as keyword"
       (check-exn exn:fail? (lambda () (data-indicator "fetching" #:as 'value))))
@@ -455,12 +553,27 @@
        (xexpr->string `(div (,(data-match-media "is-dark" "'prefers-color-scheme: dark'")) ""))
        "<div data-match-media:is-dark=\"'prefers-color-scheme: dark'\"></div>"))
 
+    (test-case "data-match-media with symbol"
+      (check-equal? (data-match-media 'is-dark "'prefers-color-scheme: dark'")
+                    (list 'data-match-media:is-dark "'prefers-color-scheme: dark'")))
+
     ;; keyed + hash helpers: data-signals ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
     (test-case "data-signals/hash basic"
       (check-equal? (data-signals/hash (hash 'count 0)) '(data-signals "{\"count\":0}"))
       (check-equal? (xexpr->string `(div (,(data-signals/hash (hash 'count 0))) ""))
                     "<div data-signals=\"{&quot;count&quot;:0}\"></div>"))
+
+    (test-case "data-signals/hash accepts string keys"
+      (define result (data-signals/hash (hash "x" 0)))
+      (check-equal? (first result) 'data-signals)
+      (check-true (string-contains? (second result) "\"x\":0")))
+
+    (test-case "data-signals/hash accepts nested string-key objects in arrays"
+      (define result (data-signals/hash (hash "arr" (list (hash "x" 1)))))
+      (check-equal? (first result) 'data-signals)
+      (check-true (string-contains? (second result) "\"arr\":["))
+      (check-true (string-contains? (second result) "\"x\":1")))
 
     (test-case "data-signals/hash with multiple values"
       (define result (data-signals/hash (hash 'count 0 'name "Alice")))
@@ -620,6 +733,10 @@
     (test-case "data-on custom event"
       (check-equal? (data-on "my-event" "$foo = evt.detail")
                     (list 'data-on:my-event "$foo = evt.detail")))
+
+    (test-case "data-on with symbol event"
+      (check-equal? (data-on 'my-event "fn()")
+                    (list 'data-on:my-event "fn()")))
 
     (test-case "data-on with post integration"
       (check-equal? (data-on "click" (post "/todo/create"))
@@ -871,6 +988,10 @@
       (check-equal? (data-on-interval "$count++" #:duration 2000)
                     (list (string->symbol "data-on-interval__duration.2000") "$count++")))
 
+    (test-case "data-on-interval duration 1s is pass-through"
+      (check-equal? (data-on-interval "fn()" #:duration "1s")
+                    (list (string->symbol "data-on-interval__duration.1s") "fn()")))
+
     (test-case "data-on-interval with duration + leading"
       (check-equal? (data-on-interval "$count++" #:duration "500ms" #:duration-leading? #t)
                     (list (string->symbol "data-on-interval__duration.500ms.leading") "$count++"))
@@ -1045,6 +1166,9 @@
       (check-equal? (xexpr->string `(div (,(data-persist #:key "mykey")) ""))
                     "<div data-persist:mykey=\"\"></div>"))
 
+    (test-case "data-persist with symbol key"
+      (check-equal? (data-persist #:key 'mykey) (list 'data-persist:mykey "")))
+
     (test-case "data-persist with session"
       (check-equal? (data-persist #:session? #t) '(data-persist__session "")))
 
@@ -1123,25 +1247,21 @@
        (xexpr->string `(pre (,(data-json-signals #:include "counter" #:terse? #t)) ""))
        "<pre data-json-signals__terse=\"{&quot;include&quot;: &quot;counter&quot;}\"></pre>"))
 
-    ;; data-preserve-attrs ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; data-preserve-attr ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    (test-case "data-preserve-attr alias"
+    (test-case "data-preserve-attr single"
       (check-equal? (data-preserve-attr "open") '(data-preserve-attr "open"))
-      (check-equal? (data-preserve-attr '("open" "class")) '(data-preserve-attr "open class")))
-
-    (test-case "data-preserve-attrs single"
-      (check-equal? (data-preserve-attrs "open") '(data-preserve-attr "open"))
-      (check-equal? (xexpr->string `(details (,(data-preserve-attrs "open") (open "")) "Content"))
+      (check-equal? (xexpr->string `(details (,(data-preserve-attr "open") (open "")) "Content"))
                     "<details data-preserve-attr=\"open\" open=\"\">Content</details>"))
 
-    (test-case "data-preserve-attrs multiple"
-      (check-equal? (data-preserve-attrs '("open" "class")) '(data-preserve-attr "open class"))
-      (check-equal? (xexpr->string `(details (,(data-preserve-attrs '("open" "class")) (open ""))
+    (test-case "data-preserve-attr multiple"
+      (check-equal? (data-preserve-attr '("open" "class")) '(data-preserve-attr "open class"))
+      (check-equal? (xexpr->string `(details (,(data-preserve-attr '("open" "class")) (open ""))
                                              "Content"))
                     "<details data-preserve-attr=\"open class\" open=\"\">Content</details>"))
 
-    (test-case "data-preserve-attrs single in list"
-      (check-equal? (data-preserve-attrs '("open")) '(data-preserve-attr "open")))
+    (test-case "data-preserve-attr single in list"
+      (check-equal? (data-preserve-attr '("open")) '(data-preserve-attr "open")))
 
     ;; x-expression integration -- usage patterns ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1256,6 +1376,11 @@
     (test-case "data-style error on invalid input"
       (check-exn exn:fail? (lambda () (data-style 42))))
 
+    (test-case "key-suffix helpers reject non-symbol/non-string"
+      (check-exn exn:fail:contract? (lambda () (data-bind 42)))
+      (check-exn exn:fail:contract? (lambda () (data-on 42 "fn()")))
+      (check-exn exn:fail:contract? (lambda () (data-persist #:key 42))))
+
     (test-case "hash helpers error on non-hash input"
       (check-exn exn:fail? (lambda () (data-signals/hash 'foo)))
       (check-exn exn:fail? (lambda () (data-computed/hash 'foo)))
@@ -1265,11 +1390,15 @@
 
     (test-case "hash helpers enforce key contracts"
       (check-exn exn:fail:contract? (lambda () (data-signals/hash (hash 1 0))))
-      (check-exn exn:fail:contract? (lambda () (data-signals/hash (hash "x" 0))))
       (check-exn exn:fail:contract? (lambda () (data-computed/hash (hash 1 "$x"))))
       (check-exn exn:fail:contract? (lambda () (data-attr/hash (hash 1 "$x"))))
       (check-exn exn:fail:contract? (lambda () (data-class/hash (hash 1 "$x"))))
       (check-exn exn:fail:contract? (lambda () (data-style/hash (hash 1 "$x")))))
+
+    (test-case "data-signals/hash tolerates normalized key collisions"
+      (define result (data-signals/hash (hash 'x 1 "x" 2)))
+      (check-equal? (first result) 'data-signals)
+      (check-true (string-contains? (second result) "\"x\":")))
 
     (test-case "data-signals keyed form requires value"
       (check-exn exn:fail? (lambda () (data-signals 'foo))))
@@ -1311,6 +1440,110 @@
     (test-case "invalid case keyword value raises contract"
       (check-exn exn:fail:contract? (lambda () (data-on "click" "fn()" #:case 'upper)))
       (check-exn exn:fail:contract? (lambda () (data-signals "foo" "1" #:case 'upper))))
+
+    (test-case "omission-sensitive attribute value keywords reject explicit #f"
+      (for ([thunk (in-list (list (lambda () (data-bind "foo"))
+                                  (lambda () (data-bind "foo" #:case 'camel))
+                                  (lambda () (data-on "click" "fn()"))
+                                  (lambda ()
+                                    (data-on "click"
+                                             "fn()"
+                                             #:debounce "10ms"
+                                             #:throttle "20ms"
+                                             #:delay "30ms"))
+                                  (lambda () (data-init "fn()" #:delay "10ms"))
+                                  (lambda ()
+                                    (data-on-intersect "fn()"
+                                                       #:threshold "50"
+                                                       #:debounce "10ms"
+                                                       #:throttle "20ms"
+                                                       #:delay "30ms"))
+                                  (lambda () (data-on-interval "fn()" #:duration "1s"))
+                                  (lambda ()
+                                    (data-on-signal-patch "fn()"
+                                                          #:debounce "10ms"
+                                                          #:throttle "20ms"
+                                                          #:delay "30ms"))
+                                  (lambda () (data-on-raf "fn()" #:throttle "10ms"))
+                                  (lambda () (data-on-resize "fn()" #:debounce "10ms" #:throttle "20ms"))
+                                  (lambda () (data-on-signal-patch-filter #:include "x" #:exclude "y"))
+                                  (lambda () (data-persist #:key 'k #:include "x" #:exclude "y"))
+                                  (lambda () (data-query-string #:include "x" #:exclude "y"))
+                                  (lambda () (data-json-signals #:include "x" #:exclude "y"))))])
+        (check-not-exn thunk))
+      (for ([thunk
+             (in-list (list (lambda () (data-bind "foo" #:case #f))
+                            (lambda () (data-ref "foo" #:case #f))
+                            (lambda () (data-indicator "foo" #:case #f))
+                            (lambda () (data-signals "foo" "1" #:case #f))
+                            (lambda () (data-computed "foo" "$x" #:case #f))
+                            (lambda () (data-class "foo" "$x" #:case #f))
+                            (lambda () (data-on "click" "fn()" #:case #f))
+                            (lambda () (data-on "click" "fn()" #:debounce #f))
+                            (lambda () (data-on "click" "fn()" #:throttle #f))
+                            (lambda () (data-on "click" "fn()" #:delay #f))
+                            (lambda () (data-init "fn()" #:delay #f))
+                            (lambda () (data-on-intersect "fn()" #:threshold #f))
+                            (lambda () (data-on-intersect "fn()" #:debounce #f))
+                            (lambda () (data-on-intersect "fn()" #:throttle #f))
+                            (lambda () (data-on-intersect "fn()" #:delay #f))
+                            (lambda () (data-on-interval "fn()" #:duration #f))
+                            (lambda () (data-on-signal-patch "fn()" #:debounce #f))
+                            (lambda () (data-on-signal-patch "fn()" #:throttle #f))
+                            (lambda () (data-on-signal-patch "fn()" #:delay #f))
+                            (lambda () (data-on-raf "fn()" #:throttle #f))
+                            (lambda () (data-on-resize "fn()" #:debounce #f))
+                            (lambda () (data-on-resize "fn()" #:throttle #f))
+                            (lambda () (data-on-signal-patch-filter #:include #f))
+                            (lambda () (data-on-signal-patch-filter #:exclude #f))
+                            (lambda () (data-persist #:key #f))
+                            (lambda () (data-persist #:include #f))
+                            (lambda () (data-persist #:exclude #f))
+                            (lambda () (data-query-string #:include #f))
+                            (lambda () (data-query-string #:exclude #f))
+                            (lambda () (data-json-signals #:include #f))
+                            (lambda () (data-json-signals #:exclude #f))))])
+        (check-exn exn:fail:contract? thunk)))
+
+    (test-case "timing child modifiers require parent values"
+      (for ([thunk
+             (in-list (list (lambda () (data-on "click" "fn()" #:debounce-leading? #t))
+                            (lambda () (data-on "click" "fn()" #:debounce-notrailing? #t))
+                            (lambda () (data-on "click" "fn()" #:throttle-noleading? #t))
+                            (lambda () (data-on "click" "fn()" #:throttle-trailing? #t))
+                            (lambda () (data-on-intersect "fn()" #:debounce-leading? #t))
+                            (lambda () (data-on-intersect "fn()" #:debounce-notrailing? #t))
+                            (lambda () (data-on-intersect "fn()" #:throttle-noleading? #t))
+                            (lambda () (data-on-intersect "fn()" #:throttle-trailing? #t))
+                            (lambda () (data-on-signal-patch "fn()" #:debounce-leading? #t))
+                            (lambda () (data-on-signal-patch "fn()" #:debounce-notrailing? #t))
+                            (lambda () (data-on-signal-patch "fn()" #:throttle-noleading? #t))
+                            (lambda () (data-on-signal-patch "fn()" #:throttle-trailing? #t))
+                            (lambda () (data-on-raf "fn()" #:throttle-noleading? #t))
+                            (lambda () (data-on-raf "fn()" #:throttle-trailing? #t))
+                            (lambda () (data-on-resize "fn()" #:debounce-leading? #t))
+                            (lambda () (data-on-resize "fn()" #:debounce-notrailing? #t))
+                            (lambda () (data-on-resize "fn()" #:throttle-noleading? #t))
+                            (lambda () (data-on-resize "fn()" #:throttle-trailing? #t))
+                            (lambda () (data-on-interval "fn()" #:duration-leading? #t))))])
+        (check-exn exn:fail:contract? thunk))
+      (for ([thunk (in-list (list (lambda ()
+                                    (data-on "click" "fn()" #:debounce "10ms" #:debounce-leading? #t))
+                                  (lambda ()
+                                    (data-on "click" "fn()" #:throttle "10ms" #:throttle-trailing? #t))
+                                  (lambda ()
+                                    (data-on-intersect
+                                     "fn()"
+                                     #:debounce "10ms"
+                                     #:debounce-notrailing? #t))
+                                  (lambda ()
+                                    (data-on-signal-patch "fn()" #:throttle "10ms" #:throttle-noleading? #t))
+                                  (lambda () (data-on-raf "fn()" #:throttle "10ms" #:throttle-trailing? #t))
+                                  (lambda ()
+                                    (data-on-resize "fn()" #:debounce "10ms" #:debounce-leading? #t))
+                                  (lambda ()
+                                    (data-on-interval "fn()" #:duration "10ms" #:duration-leading? #t))))])
+        (check-not-exn thunk)))
 
     (test-case "removed keywords reject"
       (check-exn exn:fail? (lambda () (data-on "click" "fn()" #:trust #t)))

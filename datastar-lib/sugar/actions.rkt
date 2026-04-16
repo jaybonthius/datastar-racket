@@ -9,87 +9,87 @@
           [chain (->* [string?] [] #:rest (listof string?) string?)]
           [chain/and (->* [string?] [] #:rest (listof string?) string?)]
           [peek (-> string? string?)]
-          [set-all (->* [string?] [#:include (or/c string? #f) #:exclude (or/c string? #f)] string?)]
-          [toggle-all (->* [] [#:include (or/c string? #f) #:exclude (or/c string? #f)] string?)]
+          [set-all (->* [string?] [#:include string? #:exclude string?] string?)]
+          [toggle-all (->* [] [#:include string? #:exclude string?] string?)]
           [get
            (->* [string?]
-                [#:content-type (or/c 'json 'form #f)
-                 #:filter-signals-include (or/c string? #f)
-                 #:filter-signals-exclude (or/c string? #f)
-                 #:selector (or/c string? #f)
-                 #:headers (or/c hash? #f)
+                [#:content-type (or/c 'json 'form)
+                 #:filter-signals-include string?
+                 #:filter-signals-exclude string?
+                 #:selector string?
+                 #:headers hash?
                  #:open-when-hidden? boolean?
-                 #:payload (or/c string? #f)
-                 #:retry (or/c 'auto 'error 'always 'never #f)
-                 #:retry-interval (or/c exact-nonnegative-integer? #f)
-                 #:retry-scaler (or/c number? #f)
-                 #:retry-max-wait-ms (or/c exact-nonnegative-integer? #f)
-                 #:retry-max-count (or/c exact-nonnegative-integer? #f)
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string? #f)]
+                 #:payload string?
+                 #:retry (or/c 'auto 'error 'always 'never)
+                 #:retry-interval exact-nonnegative-integer?
+                 #:retry-scaler number?
+                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-count exact-nonnegative-integer?
+                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
           [post
            (->* [string?]
-                [#:content-type (or/c 'json 'form #f)
-                 #:filter-signals-include (or/c string? #f)
-                 #:filter-signals-exclude (or/c string? #f)
-                 #:selector (or/c string? #f)
-                 #:headers (or/c hash? #f)
+                [#:content-type (or/c 'json 'form)
+                 #:filter-signals-include string?
+                 #:filter-signals-exclude string?
+                 #:selector string?
+                 #:headers hash?
                  #:open-when-hidden? boolean?
-                 #:payload (or/c string? #f)
-                 #:retry (or/c 'auto 'error 'always 'never #f)
-                 #:retry-interval (or/c exact-nonnegative-integer? #f)
-                 #:retry-scaler (or/c number? #f)
-                 #:retry-max-wait-ms (or/c exact-nonnegative-integer? #f)
-                 #:retry-max-count (or/c exact-nonnegative-integer? #f)
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string? #f)]
+                 #:payload string?
+                 #:retry (or/c 'auto 'error 'always 'never)
+                 #:retry-interval exact-nonnegative-integer?
+                 #:retry-scaler number?
+                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-count exact-nonnegative-integer?
+                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
           [put
            (->* [string?]
-                [#:content-type (or/c 'json 'form #f)
-                 #:filter-signals-include (or/c string? #f)
-                 #:filter-signals-exclude (or/c string? #f)
-                 #:selector (or/c string? #f)
-                 #:headers (or/c hash? #f)
+                [#:content-type (or/c 'json 'form)
+                 #:filter-signals-include string?
+                 #:filter-signals-exclude string?
+                 #:selector string?
+                 #:headers hash?
                  #:open-when-hidden? boolean?
-                 #:payload (or/c string? #f)
-                 #:retry (or/c 'auto 'error 'always 'never #f)
-                 #:retry-interval (or/c exact-nonnegative-integer? #f)
-                 #:retry-scaler (or/c number? #f)
-                 #:retry-max-wait-ms (or/c exact-nonnegative-integer? #f)
-                 #:retry-max-count (or/c exact-nonnegative-integer? #f)
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string? #f)]
+                 #:payload string?
+                 #:retry (or/c 'auto 'error 'always 'never)
+                 #:retry-interval exact-nonnegative-integer?
+                 #:retry-scaler number?
+                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-count exact-nonnegative-integer?
+                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
           [patch
            (->* [string?]
-                [#:content-type (or/c 'json 'form #f)
-                 #:filter-signals-include (or/c string? #f)
-                 #:filter-signals-exclude (or/c string? #f)
-                 #:selector (or/c string? #f)
-                 #:headers (or/c hash? #f)
+                [#:content-type (or/c 'json 'form)
+                 #:filter-signals-include string?
+                 #:filter-signals-exclude string?
+                 #:selector string?
+                 #:headers hash?
                  #:open-when-hidden? boolean?
-                 #:payload (or/c string? #f)
-                 #:retry (or/c 'auto 'error 'always 'never #f)
-                 #:retry-interval (or/c exact-nonnegative-integer? #f)
-                 #:retry-scaler (or/c number? #f)
-                 #:retry-max-wait-ms (or/c exact-nonnegative-integer? #f)
-                 #:retry-max-count (or/c exact-nonnegative-integer? #f)
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string? #f)]
+                 #:payload string?
+                 #:retry (or/c 'auto 'error 'always 'never)
+                 #:retry-interval exact-nonnegative-integer?
+                 #:retry-scaler number?
+                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-count exact-nonnegative-integer?
+                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
           [delete
            (->* [string?]
-                [#:content-type (or/c 'json 'form #f)
-                 #:filter-signals-include (or/c string? #f)
-                 #:filter-signals-exclude (or/c string? #f)
-                 #:selector (or/c string? #f)
-                 #:headers (or/c hash? #f)
+                [#:content-type (or/c 'json 'form)
+                 #:filter-signals-include string?
+                 #:filter-signals-exclude string?
+                 #:selector string?
+                 #:headers hash?
                  #:open-when-hidden? boolean?
-                 #:payload (or/c string? #f)
-                 #:retry (or/c 'auto 'error 'always 'never #f)
-                 #:retry-interval (or/c exact-nonnegative-integer? #f)
-                 #:retry-scaler (or/c number? #f)
-                 #:retry-max-wait-ms (or/c exact-nonnegative-integer? #f)
-                 #:retry-max-count (or/c exact-nonnegative-integer? #f)
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string? #f)]
+                 #:payload string?
+                 #:retry (or/c 'auto 'error 'always 'never)
+                 #:retry-interval exact-nonnegative-integer?
+                 #:retry-scaler number?
+                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-count exact-nonnegative-integer?
+                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
           [clipboard (->* [string?] [#:base64? boolean?] string?)]
           [fit
@@ -97,7 +97,7 @@
                 [#:clamp? boolean? #:round? boolean?]
                 string?)]
           [intl
-           (->* [string? string?] [#:options (or/c hash? #f) #:locale (or/c string? #f)] string?)]))
+           (->* [string? string?] [#:options hash? #:locale string?] string?)]))
 
 ;; internal helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; These produce JS expression syntax (unquoted keys, regex literals)
@@ -137,6 +137,9 @@
                 '())))
   (string-join parts ", " #:before-first "{" #:after-last "}"))
 
+(define (provided? value)
+  (not (unsupplied-arg? value)))
+
 (define (build-options-string content-type ;; review: ignore
                               fs-include
                               fs-exclude
@@ -150,23 +153,35 @@
                               retry-max-wait-ms
                               retry-max-count
                               request-cancellation)
+  (define fs-include? (provided? fs-include))
+  (define fs-exclude? (provided? fs-exclude))
   (define parts
     (filter values
-            (list (and content-type (string-append "contentType: " (js-value content-type)))
-                  (and (or fs-include fs-exclude)
-                       (string-append "filterSignals: " (build-filter-signals fs-include fs-exclude)))
-                  (and selector (string-append "selector: " (jsexpr->string selector)))
-                  (and headers (string-append "headers: " (js-object-from-hash headers)))
-                  (and (not (eq? open-when-hidden? 'unset))
+            (list (and (provided? content-type)
+                       (string-append "contentType: " (js-value content-type)))
+                  (and (or fs-include? fs-exclude?)
+                       (string-append "filterSignals: "
+                                      (build-filter-signals (and fs-include? fs-include)
+                                                            (and fs-exclude? fs-exclude))))
+                  (and (provided? selector)
+                       (string-append "selector: " (jsexpr->string selector)))
+                  (and (provided? headers)
+                       (string-append "headers: " (js-object-from-hash headers)))
+                  (and (provided? open-when-hidden?)
                        (string-append "openWhenHidden: " (js-value open-when-hidden?)))
-                  (and payload (string-append "payload: " payload))
-                  (and retry (string-append "retry: " (js-value retry)))
-                  (and retry-interval (string-append "retryInterval: " (js-value retry-interval)))
-                  (and retry-scaler (string-append "retryScaler: " (js-value retry-scaler)))
-                  (and retry-max-wait-ms
+                  (and (provided? payload)
+                       (string-append "payload: " payload))
+                  (and (provided? retry)
+                       (string-append "retry: " (js-value retry)))
+                  (and (provided? retry-interval)
+                       (string-append "retryInterval: " (js-value retry-interval)))
+                  (and (provided? retry-scaler)
+                       (string-append "retryScaler: " (js-value retry-scaler)))
+                  (and (provided? retry-max-wait-ms)
                        (string-append "retryMaxWaitMs: " (js-value retry-max-wait-ms)))
-                  (and retry-max-count (string-append "retryMaxCount: " (js-value retry-max-count)))
-                  (and request-cancellation
+                  (and (provided? retry-max-count)
+                       (string-append "retryMaxCount: " (js-value retry-max-count)))
+                  (and (provided? request-cancellation)
                        (string-append "requestCancellation: " (js-value request-cancellation))))))
   (if (null? parts)
       #f
@@ -176,19 +191,19 @@
 
 (define-syntax-rule (define-action-method name method-str)
   (define (name url
-                #:content-type [content-type #f]
-                #:filter-signals-include [fs-include #f]
-                #:filter-signals-exclude [fs-exclude #f]
-                #:selector [selector #f]
-                #:headers [headers #f]
-                #:open-when-hidden? [open-when-hidden? 'unset]
-                #:payload [payload #f]
-                #:retry [retry #f]
-                #:retry-interval [retry-interval #f]
-                #:retry-scaler [retry-scaler #f]
-                #:retry-max-wait-ms [retry-max-wait-ms #f]
-                #:retry-max-count [retry-max-count #f]
-                #:request-cancellation [request-cancellation #f])
+                #:content-type [content-type the-unsupplied-arg]
+                #:filter-signals-include [fs-include the-unsupplied-arg]
+                #:filter-signals-exclude [fs-exclude the-unsupplied-arg]
+                #:selector [selector the-unsupplied-arg]
+                #:headers [headers the-unsupplied-arg]
+                #:open-when-hidden? [open-when-hidden? the-unsupplied-arg]
+                #:payload [payload the-unsupplied-arg]
+                #:retry [retry the-unsupplied-arg]
+                #:retry-interval [retry-interval the-unsupplied-arg]
+                #:retry-scaler [retry-scaler the-unsupplied-arg]
+                #:retry-max-wait-ms [retry-max-wait-ms the-unsupplied-arg]
+                #:retry-max-count [retry-max-count the-unsupplied-arg]
+                #:request-cancellation [request-cancellation the-unsupplied-arg])
     (define opts-str
       (build-options-string content-type
                             fs-include
@@ -230,17 +245,19 @@
 
 ;; pro actions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (clipboard text #:base64? [base64? 'unset])
-  (if (eq? base64? 'unset)
+(define (clipboard text #:base64? [base64? the-unsupplied-arg])
+  (if (unsupplied-arg? base64?)
       (format "@clipboard(~a)" text)
       (format "@clipboard(~a, ~a)" text (js-value base64?))))
 
-(define (fit v old-min old-max new-min new-max #:clamp? [clamp? 'unset] #:round? [round? 'unset])
+(define (fit v old-min old-max new-min new-max
+             #:clamp? [clamp? the-unsupplied-arg]
+             #:round? [round? the-unsupplied-arg])
   (define base (format "@fit(~a, ~a, ~a, ~a, ~a" v old-min old-max new-min new-max))
   (cond
-    [(and (eq? clamp? 'unset) (eq? round? 'unset)) (string-append base ")")]
-    [(eq? round? 'unset) (format "~a, ~a)" base (js-value clamp?))]
-    [(eq? clamp? 'unset) (format "~a, false, ~a)" base (js-value round?))]
+    [(and (unsupplied-arg? clamp?) (unsupplied-arg? round?)) (string-append base ")")]
+    [(unsupplied-arg? round?) (format "~a, ~a)" base (js-value clamp?))]
+    [(unsupplied-arg? clamp?) (format "~a, false, ~a)" base (js-value round?))]
     [else (format "~a, ~a, ~a)" base (js-value clamp?) (js-value round?))]))
 
 (define (intl type value #:options [options #f] #:locale [locale #f])

@@ -14,25 +14,25 @@
 
 (struct sse (out semaphore closed-box lock-held?) #:constructor-name make-sse) ;; review: ignore
 
-(define (sse-closed? gen)
-  (or (unbox (sse-closed-box gen)) (port-closed? (sse-out gen))))
+(define (sse-closed? sse)
+  (or (unbox (sse-closed-box sse)) (port-closed? (sse-out sse))))
 
-(define (call-with-sse-lock gen thunk)
-  (if (thread-cell-ref (sse-lock-held? gen))
+(define (call-with-sse-lock sse thunk)
+  (if (thread-cell-ref (sse-lock-held? sse))
       (thunk)
       (call-with-semaphore
-       (sse-semaphore gen)
+       (sse-semaphore sse)
        (lambda ()
-         (thread-cell-set! (sse-lock-held? gen) #t)
-         (dynamic-wind void thunk (lambda () (thread-cell-set! (sse-lock-held? gen) #f)))))))
+         (thread-cell-set! (sse-lock-held? sse) #t)
+         (dynamic-wind void thunk (lambda () (thread-cell-set! (sse-lock-held? sse) #f)))))))
 
-(define (sse-send gen event-str)
-  (call-with-sse-lock gen
+(define (sse-send sse event-str)
+  (call-with-sse-lock sse
                       (lambda ()
-                        (when (sse-closed? gen)
+                        (when (sse-closed? sse)
                           (error 'sse-send "connection is closed"))
-                        (write-string event-str (sse-out gen))
-                        (flush-output (sse-out gen)))))
+                        (write-string event-str (sse-out sse))
+                        (flush-output (sse-out sse)))))
 
 (define (make-test-sse)
   (define out (open-output-string))

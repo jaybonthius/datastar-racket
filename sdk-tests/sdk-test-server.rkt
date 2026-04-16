@@ -7,26 +7,45 @@
 
 (define (string->mode s)
   (and s (string->symbol s)))
+
 (define (string->namespace s)
   (and s (string->symbol s)))
 
 (define (handle-execute-script sse event)
-  (execute-script sse
-                  (hash-ref event 'script "")
-                  #:auto-remove? (hash-ref event 'autoRemove #t)
-                  #:attributes (hash-ref event 'attributes #f)
-                  #:event-id (hash-ref event 'eventId #f)
-                  #:retry-duration (hash-ref event 'retryDuration #f)))
+  (define kw (make-hash))
+  (when (hash-has-key? event 'autoRemove)
+    (hash-set! kw '#:auto-remove? (hash-ref event 'autoRemove)))
+  (when (hash-has-key? event 'attributes)
+    (hash-set! kw '#:attributes (hash-ref event 'attributes)))
+  (when (hash-has-key? event 'eventId)
+    (hash-set! kw '#:event-id (hash-ref event 'eventId)))
+  (when (hash-has-key? event 'retryDuration)
+    (hash-set! kw '#:retry-duration (hash-ref event 'retryDuration)))
+  (keyword-apply/dict execute-script
+                      kw
+                      sse
+                      (hash-ref event 'script "")
+                      '()))
 
 (define (handle-patch-elements sse event)
-  (patch-elements sse
-                  (hash-ref event 'elements #f)
-                  #:selector (hash-ref event 'selector #f)
-                  #:mode (string->mode (hash-ref event 'mode #f))
-                  #:namespace (string->namespace (hash-ref event 'namespace #f))
-                  #:use-view-transitions? (hash-ref event 'useViewTransition #f)
-                  #:event-id (hash-ref event 'eventId #f)
-                  #:retry-duration (hash-ref event 'retryDuration #f)))
+  (define kw (make-hash))
+  (when (hash-has-key? event 'selector)
+    (hash-set! kw '#:selector (hash-ref event 'selector)))
+  (when (hash-has-key? event 'mode)
+    (hash-set! kw '#:mode (string->mode (hash-ref event 'mode))))
+  (when (hash-has-key? event 'namespace)
+    (hash-set! kw '#:namespace (string->namespace (hash-ref event 'namespace))))
+  (when (hash-has-key? event 'useViewTransition)
+    (hash-set! kw '#:use-view-transitions? (hash-ref event 'useViewTransition)))
+  (when (hash-has-key? event 'eventId)
+    (hash-set! kw '#:event-id (hash-ref event 'eventId)))
+  (when (hash-has-key? event 'retryDuration)
+    (hash-set! kw '#:retry-duration (hash-ref event 'retryDuration)))
+  (keyword-apply/dict patch-elements
+                      kw
+                      sse
+                      (hash-ref event 'elements #f)
+                      '()))
 
 (define (handle-patch-signals sse event)
   (define signals-data
@@ -34,17 +53,26 @@
       [(hash-has-key? event 'signals-raw) (hash-ref event 'signals-raw)]
       [(hash-has-key? event 'signals) (hash-ref event 'signals)]
       [else (hash)]))
-  (patch-signals sse
-                 signals-data
-                 #:only-if-missing? (hash-ref event 'onlyIfMissing #f)
-                 #:event-id (hash-ref event 'eventId #f)
-                 #:retry-duration (hash-ref event 'retryDuration #f)))
+  (define kw (make-hash))
+  (when (hash-has-key? event 'onlyIfMissing)
+    (hash-set! kw '#:only-if-missing? (hash-ref event 'onlyIfMissing)))
+  (when (hash-has-key? event 'eventId)
+    (hash-set! kw '#:event-id (hash-ref event 'eventId)))
+  (when (hash-has-key? event 'retryDuration)
+    (hash-set! kw '#:retry-duration (hash-ref event 'retryDuration)))
+  (keyword-apply/dict patch-signals kw sse signals-data '()))
 
 (define (handle-remove-elements sse event)
-  (remove-elements sse
-                   (hash-ref event 'selector "")
-                   #:event-id (hash-ref event 'eventId #f)
-                   #:retry-duration (hash-ref event 'retryDuration #f)))
+  (define kw (make-hash))
+  (when (hash-has-key? event 'eventId)
+    (hash-set! kw '#:event-id (hash-ref event 'eventId)))
+  (when (hash-has-key? event 'retryDuration)
+    (hash-set! kw '#:retry-duration (hash-ref event 'retryDuration)))
+  (keyword-apply/dict remove-elements
+                      kw
+                      sse
+                      (hash-ref event 'selector "")
+                      '()))
 
 (define (handle-remove-signals sse event)
   (define remove-payload
@@ -52,27 +80,20 @@
       [(hash-has-key? event 'paths) (hash-ref event 'paths)]
       [(hash-has-key? event 'signals) (hash-ref event 'signals)]
       [else #f]))
+  (define kw (make-hash))
+  (when (hash-has-key? event 'eventId)
+    (hash-set! kw '#:event-id (hash-ref event 'eventId)))
+  (when (hash-has-key? event 'retryDuration)
+    (hash-set! kw '#:retry-duration (hash-ref event 'retryDuration)))
   (cond
     [(string? remove-payload)
-     (remove-signals sse
-                     remove-payload
-                     #:event-id (hash-ref event 'eventId #f)
-                     #:retry-duration (hash-ref event 'retryDuration #f))]
+     (keyword-apply/dict remove-signals kw sse remove-payload '())]
     [(and (list? remove-payload) (andmap string? remove-payload))
-     (remove-signals sse
-                     remove-payload
-                     #:event-id (hash-ref event 'eventId #f)
-                     #:retry-duration (hash-ref event 'retryDuration #f))]
+     (keyword-apply/dict remove-signals kw sse remove-payload '())]
     [(hash? remove-payload)
-     (patch-signals sse
-                    remove-payload
-                    #:event-id (hash-ref event 'eventId #f)
-                    #:retry-duration (hash-ref event 'retryDuration #f))]
+     (keyword-apply/dict patch-signals kw sse remove-payload '())]
     [else
-     (remove-signals sse
-                     '()
-                     #:event-id (hash-ref event 'eventId #f)
-                     #:retry-duration (hash-ref event 'retryDuration #f))]))
+     (keyword-apply/dict remove-signals kw sse '() '())]))
 
 (define event-handlers
   (hash "executeScript"

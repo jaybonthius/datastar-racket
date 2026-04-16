@@ -41,20 +41,20 @@ Returns @racket[#t] if the request has a @tt{Datastar-Request: true} header, mea
 
 @section[#:tag "responses"]{Responses}
 
-@defmodule[datastar/http/response]
-
-Datastar supports two backend response styles:
+Datastar response helpers are split across two modules:
 
 @itemlist[
-  @item{@bold{@seclink["sse"]{SSE event streams}} --- @tt{text/event-stream} responses for Datastar events, from single immediate updates to long-lived streams.}
-  @item{@bold{@seclink["one-shot-responses"]{One-shot HTTP responses}} --- non-SSE responses with Datastar-aware headers using @tt{text/html}, @tt{application/json}, or @tt{text/javascript}.}
+  @item{@bold{@seclink["sse"]{SSE event streams}} (@racketmodname[datastar/http/sse]) --- @tt{text/event-stream} responses for Datastar events, from single immediate updates to long-lived streams.}
+  @item{@bold{@seclink["one-shot-responses"]{One-shot HTTP responses}} (@racketmodname[datastar/http/response]) --- non-SSE responses with Datastar-aware headers using @tt{text/html}, @tt{application/json}, or @tt{text/javascript}.}
 ]
 
 The @link["https://data-star.dev/guide/the_tao_of_datastar#sse-responses"]{Tao of Datastar} recommends SSE event streams as the default for most backend actions.
 
+@bold{Serializer omission policy:} default-valued Datastar fields are omitted only by wire serializers in these modules (SSE event serialization in @racketmodname[datastar/http/sse] and one-shot response header serialization in @racketmodname[datastar/http/response]).
+
 @subsection[#:tag "sse"]{SSE}
 
-@defmodule[datastar/http/response/sse]
+@defmodule[datastar/http/sse]
 
 Functions for creating and managing @link["https://data-star.dev/reference/sse_events"]{Datastar SSE events}. See the @link["https://data-star.dev/reference/sse_events"]{Datastar SSE events reference} for full details on event types and their data lines.
 
@@ -81,7 +81,7 @@ Use @racket[dispatch/servlet] from @racket[web-server/servlet-dispatch] to conve
 @subsubsection{SSE Generator}
 
 @defproc[(datastar-sse [on-open (-> sse? any)]
-                       [#:on-close on-close (or/c (-> sse? any) #f) #f]) response?]{
+                       [#:on-close on-close (-> sse? any)]) response?]{
 Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a fresh @racket[sse?] generator that can be used to send events to the client. When @racket[on-open] returns (or raises an exception), the connection is closed and @racket[on-close] is called if provided.
 
 When the server is set up with @racket[datastar-tcp@], client disconnections are detected immediately: the SDK monitors the TCP input port and interrupts @racket[on-open] as soon as the client goes away, ensuring prompt cleanup via @racket[on-close].
@@ -146,16 +146,18 @@ Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock
 
 @defproc[(patch-signals [sse sse?]
                          [signals (or/c string? jsexpr?)]
-                         [#:event-id event-id (or/c string? #f) #f]
-                         [#:only-if-missing? only-if-missing? (or/c boolean? #f) #f]
-                         [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+                         [#:event-id event-id string?]
+                         [#:only-if-missing? only-if-missing? boolean? #f]
+                         [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-signals"]{@tt{datastar-patch-signals}} SSE event that patches signals into the existing signals on the page. The @racket[#:only-if-missing?] option determines whether to update each signal only if a signal with that name does not yet exist.
+
+Serializer behavior omits default-equivalent wire fields: @tt{data: onlyIfMissing ...} is emitted only when @racket[#:only-if-missing?] is @racket[#t], and @tt{retry: ...} is emitted only when @racket[#:retry-duration] is non-default.
 }
 
 @defproc[(remove-signals [sse sse?]
                           [signal-path-or-paths (or/c string? (listof string?))]
-                          [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+                          [#:event-id event-id string?]
+                          [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Convenience wrapper around @racket[patch-signals] for removing one or more signal paths. Builds a patch object with each provided path set to @racket['null], then sends a @tt{datastar-patch-signals} event.
 
 Dot notation paths are expanded to nested objects, so @racket["user.name"] becomes @tt{{"user":{"name":null}}}.
@@ -165,15 +167,17 @@ Dot notation paths are expanded to nested objects, so @racket["user.name"] becom
 
 @defproc[(patch-elements [sse sse?]
                           [elements (or/c string? #f)]
-                          [#:selector selector (or/c string? #f) #f]
-                          [#:mode mode element-patch-mode/c #f]
-                          [#:namespace namespace element-namespace/c #f]
-                          [#:use-view-transitions? use-view-transitions? (or/c boolean? #f) #f]
-                          [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+                          [#:selector selector string?]
+                          [#:mode mode element-patch-mode/c]
+                          [#:namespace namespace element-namespace/c]
+                          [#:use-view-transitions? use-view-transitions? boolean? #f]
+                          [#:event-id event-id string?]
+                          [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-elements"]{@tt{datastar-patch-elements}} SSE event that patches one or more elements in the DOM. By default, Datastar morphs elements by matching top-level elements based on their ID.
 
-The @racket[#:mode] parameter controls how elements are patched. Use symbol values; see @racket[element-patch-mode/c] for allowed values. When @racket[#f] or @racket['outer], the mode data line is omitted.
+The @racket[#:mode] parameter controls how elements are patched. Use symbol values; see @racket[element-patch-mode/c] for allowed values.
+
+Serializer behavior omits default-equivalent wire fields: @tt{data: mode ...} is omitted for @racket['outer], @tt{data: namespace ...} is omitted for @racket['html], @tt{data: useViewTransition ...} is omitted for @racket[#f], and @tt{retry: ...} is omitted for the default retry duration.
 
 @racketblock[
 (patch-elements sse "<div id=\"out\">hello</div>")
@@ -184,12 +188,12 @@ The @racket[#:mode] parameter controls how elements are patched. Use symbol valu
 
 @defproc[(patch-elements/xexprs [sse sse?]
                                  [xexpr-or-xexprs (or/c xexpr/c (listof xexpr/c))]
-                                 [#:selector selector (or/c string? #f) #f]
-                                 [#:mode mode element-patch-mode/c #f]
-                                 [#:namespace namespace element-namespace/c #f]
-                                 [#:use-view-transitions? use-view-transitions? (or/c boolean? #f) #f]
-                                 [#:event-id event-id (or/c string? #f) #f]
-                                 [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+                                 [#:selector selector string?]
+                                 [#:mode mode element-patch-mode/c]
+                                 [#:namespace namespace element-namespace/c]
+                                 [#:use-view-transitions? use-view-transitions? boolean? #f]
+                                 [#:event-id event-id string?]
+                                 [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Like @racket[patch-elements], but accepts either a single x-expression or a list of x-expressions instead of a raw HTML string. Converts each x-expression via @racket[xexpr->string], concatenates resulting HTML fragments, and delegates to @racket[patch-elements]. If an empty list is provided, a @tt{datastar-patch-elements} event is still emitted, but with no @tt{elements} data lines.
 
 @racketblock[
@@ -206,17 +210,17 @@ Like @racket[patch-elements], but accepts either a single x-expression or a list
 Contracts used by @racket[patch-elements] and @racket[patch-elements/xexprs] option arguments:
 
 @defthing[element-patch-mode/c flat-contract?]{
-Contract for valid patch modes: @racket['outer], @racket['inner], @racket['remove], @racket['replace], @racket['prepend], @racket['append], @racket['before], @racket['after], or @racket[#f].
+Contract for valid patch modes: @racket['outer], @racket['inner], @racket['remove], @racket['replace], @racket['prepend], @racket['append], @racket['before], or @racket['after].
 }
 
 @defthing[element-namespace/c flat-contract?]{
-Contract for valid namespaces: @racket['html], @racket['svg], @racket['mathml], or @racket[#f].
+Contract for valid namespaces: @racket['html], @racket['svg], or @racket['mathml].
 }
 
 @defproc[(remove-elements [sse sse?]
                            [selector string?]
-                           [#:event-id event-id (or/c string? #f) #f]
-                           [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+                           [#:event-id event-id string?]
+                           [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Removes elements from the DOM by CSS selector. Convenience function that calls @racket[patch-elements] with @racket['remove].
 }
 
@@ -225,9 +229,9 @@ Removes elements from the DOM by CSS selector. Convenience function that calls @
 @defproc[(execute-script [sse sse?]
                           [script string?]
                           [#:auto-remove? auto-remove? boolean? #t]
-                          [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?) #f) #f]
-                          [#:event-id event-id (or/c string? #f) #f]
-                          [#:retry-duration retry-duration (or/c exact-positive-integer? #f) #f]) void?]{
+                          [#:attributes attributes (or/c (hash/c symbol? any/c) (listof string?))]
+                          [#:event-id event-id string?]
+                          [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Sends a @tt{datastar-patch-elements} SSE event that appends a @tt{<script>} element to @tt{body}. The script element is automatically removed after execution unless @racket[auto-remove?] is @racket[#f].
 }
 
@@ -285,7 +289,7 @@ For single-encoding use, @racket[wrap-brotli-compress] and @racket[wrap-zstd-com
 
 @subsection[#:tag "one-shot-responses"]{One-Shot Responses (Non-SSE)}
 
-@defmodule[datastar/http/response/one-shot]
+@defmodule[datastar/http/response]
 
 The @link["https://data-star.dev/guide/the_tao_of_datastar#sse-responses"]{Tao of Datastar} recommends using @seclink["sse"]{SSE event streams} by default. Non-SSE responses can still be useful when:
 
@@ -297,12 +301,12 @@ The @link["https://data-star.dev/guide/the_tao_of_datastar#sse-responses"]{Tao o
 These helpers build regular HTTP responses for Datastar backend actions without opening an SSE stream.
 
 @defproc[(response/datastar-elements [elements (or/c string? bytes?)]
-                                     [#:selector selector (or/c string? #f) #f]
-                                     [#:mode mode element-patch-mode/c #f]
-                                     [#:namespace namespace element-namespace/c #f]
+                                     [#:selector selector string?]
+                                     [#:mode mode element-patch-mode/c]
+                                     [#:namespace namespace element-namespace/c]
                                      [#:use-view-transitions? use-view-transitions? boolean? #f]
                                      [#:status status exact-positive-integer? 200]
-                                     [#:headers headers (or/c (hash/c string? string?) #f) #f])
+                                     [#:headers headers (hash/c string? string?)])
          response?]{
 Builds a @tt{text/html} response interpreted by Datastar as an elements patch.
 The response body may contain one or more top-level elements.
@@ -314,15 +318,17 @@ Optional Datastar headers:
   @item{@tt{datastar-namespace}}
   @item{@tt{datastar-use-view-transition}}
 ]
+
+Serializer behavior matches SSE omission defaults: @tt{datastar-mode} is omitted for @racket['outer], @tt{datastar-namespace} is omitted for @racket['html], and @tt{datastar-use-view-transition} is omitted for @racket[#f].
 }
 
 @defproc[(response/datastar-elements/xexprs [xexpr-or-xexprs (or/c xexpr/c (listof xexpr/c))]
-                                            [#:selector selector (or/c string? #f) #f]
-                                            [#:mode mode element-patch-mode/c #f]
-                                            [#:namespace namespace element-namespace/c #f]
+                                            [#:selector selector string?]
+                                            [#:mode mode element-patch-mode/c]
+                                            [#:namespace namespace element-namespace/c]
                                             [#:use-view-transitions? use-view-transitions? boolean? #f]
                                             [#:status status exact-positive-integer? 200]
-                                            [#:headers headers (or/c (hash/c string? string?) #f) #f])
+                                            [#:headers headers (hash/c string? string?)])
          response?]{
 Like @racket[response/datastar-elements], but takes x-expressions and renders them to HTML first.
 }
@@ -330,17 +336,17 @@ Like @racket[response/datastar-elements], but takes x-expressions and renders th
 @defproc[(response/datastar-signals [signals (or/c string? bytes? jsexpr?)]
                                     [#:only-if-missing? only-if-missing? boolean? #f]
                                     [#:status status exact-positive-integer? 200]
-                                    [#:headers headers (or/c (hash/c string? string?) #f) #f])
+                                    [#:headers headers (hash/c string? string?)])
          response?]{
 Builds an @tt{application/json} response interpreted by Datastar as a signals patch.
 
-When @racket[#:only-if-missing?] is @racket[#t], sets the @tt{datastar-only-if-missing} response header.
+Serializer behavior matches SSE omission defaults: @tt{datastar-only-if-missing} is emitted only when @racket[#:only-if-missing?] is @racket[#t] (explicit @racket[#f] is omitted).
 }
 
 @defproc[(response/datastar-script [script (or/c string? bytes?)]
-                                   [#:attributes attributes (or/c (hash/c (or/c symbol? string?) any/c) #f) #f]
+                                   [#:attributes attributes (hash/c (or/c symbol? string?) any/c)]
                                    [#:status status exact-positive-integer? 200]
-                                   [#:headers headers (or/c (hash/c string? string?) #f) #f])
+                                   [#:headers headers (hash/c string? string?)])
          response?]{
 Builds a @tt{text/javascript} response interpreted by Datastar as executable script.
 

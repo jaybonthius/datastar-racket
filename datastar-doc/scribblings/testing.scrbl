@@ -26,7 +26,7 @@ Creates a mock @racket[sse?] generator that works with all the normal send funct
 @defproc[(make-recording-sse) (values sse? (-> (listof sse-event?)))]{
 Like @racket[make-mock-sse], but instead of returning raw text, the retrieval thunk returns a list of @racket[sse-event] structs, one per event sent.
 
-The events are parsed from the same SSE text that would go over the wire, so they reflect exactly what a real client would receive.
+The events are parsed from the same SSE text that would go over the wire, so they reflect exactly what a real client would receive, including serializer-side omission of default wire fields (for example mode @racket['outer], namespace @racket['html], @tt{useViewTransition false}, @tt{onlyIfMissing false}, and default retry).
 
 @examples[#:eval ev #:label #f
 (define-values (sse2 get-events) (make-recording-sse))
@@ -49,7 +49,7 @@ A parsed SSE event. Transparent, so @racket[check-equal?] works on it directly.
 @itemlist[
   @item{@racket[type] -- event type string (e.g. @racket["datastar-patch-elements"]).}
   @item{@racket[id] -- event ID, or @racket[#f] if none was set.}
-  @item{@racket[retry] -- retry duration in milliseconds, or @racket[#f] if the default was used (defaults are omitted from SSE output).}
+  @item{@racket[retry] -- retry duration in milliseconds, or @racket[#f] if the default was used (default-equivalent retry is omitted by the serializer).}
   @item{@racket[data-lines] -- list of data line contents without the @tt{data: } prefix. For example, @racket['("elements <div>hello</div>")].}
 ]
 }

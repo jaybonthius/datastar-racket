@@ -4,51 +4,47 @@
          racket/contract/base
          racket/string)
 
-(define case-style/c (or/c 'camel 'kebab 'snake 'pascal #f))
-(define attr-pair/c (list/c symbol? string?))
-(define hash-key/c (or/c symbol? string?))
+(define case-style/c (or/c 'camel 'kebab 'snake 'pascal))
 
-(define (hash-js-value? v)
-  (or (string? v)
-      (jsexpr? v)
-      (and (hash? v)
-           (for/and ([(k subv) (in-hash v)])
-             (and (or (symbol? k) (string? k)) (hash-js-value? subv))))))
-
-(define hash-js-value/c (flat-named-contract 'hash-js-value/c hash-js-value?))
-
-(define hash-values/c (hash/c hash-key/c hash-js-value/c))
-(define signals-hash/c (and/c hash? jsexpr?))
-(define computed-hash/c (hash/c hash-key/c string?))
-
-(provide (contract-out
-          [data-show (-> string? attr-pair/c)]
-          [data-text (-> string? attr-pair/c)]
-          [data-effect (-> string? attr-pair/c)]
-          [data-animate (-> string? attr-pair/c)]
-          [data-bind (->* [string?] [#:case case-style/c] attr-pair/c)]
-          [data-ref (->* [string?] [#:case case-style/c] attr-pair/c)]
-          [data-indicator (->* [string?] [#:case case-style/c] attr-pair/c)]
-          [data-ignore-morph (-> attr-pair/c)]
-          [data-view-transition (-> string? attr-pair/c)]
-          [data-custom-validity (-> string? attr-pair/c)]
-          [data-replace-url (-> string? attr-pair/c)]
-          [data-match-media (-> string? string? attr-pair/c)]
+(provide case-style/c
+         (contract-out
+          [data-show (-> string? (list/c symbol? string?))]
+          [data-text (-> string? (list/c symbol? string?))]
+          [data-effect (-> string? (list/c symbol? string?))]
+          [data-animate (-> string? (list/c symbol? string?))]
+          [data-bind (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
+          [data-ref (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
+          [data-indicator
+           (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
+          [data-ignore-morph (-> (list/c symbol? string?))]
+          [data-view-transition (-> string? (list/c symbol? string?))]
+          [data-custom-validity (-> string? (list/c symbol? string?))]
+          [data-replace-url (-> string? (list/c symbol? string?))]
+          [data-match-media (-> (or/c symbol? string?) string? (list/c symbol? string?))]
           [data-signals
            (->* [(or/c symbol? string?) string?]
                 [#:ifmissing? boolean? #:case case-style/c]
-                attr-pair/c)]
-          [data-signals/hash (->* [signals-hash/c] [#:ifmissing? boolean?] attr-pair/c)]
-          [data-computed (->* [(or/c symbol? string?) string?] [#:case case-style/c] attr-pair/c)]
-          [data-computed/hash (-> computed-hash/c attr-pair/c)]
-          [data-attr (-> (or/c symbol? string?) string? attr-pair/c)]
-          [data-attr/hash (-> hash-values/c attr-pair/c)]
-          [data-class (->* [(or/c symbol? string?) string?] [#:case case-style/c] attr-pair/c)]
-          [data-class/hash (-> hash-values/c attr-pair/c)]
-          [data-style (-> (or/c symbol? string?) string? attr-pair/c)]
-          [data-style/hash (-> hash-values/c attr-pair/c)]
+                (list/c symbol? string?))]
+          [data-signals/hash
+           (->* [(hash/c (or/c symbol? string?) any/c)]
+                [#:ifmissing? boolean?]
+                (list/c symbol? string?))]
+          [data-computed
+           (->* [(or/c symbol? string?) string?]
+                [#:case case-style/c]
+                (list/c symbol? string?))]
+          [data-computed/hash (-> (hash/c (or/c symbol? string?) string?) (list/c symbol? string?))]
+          [data-attr (-> (or/c symbol? string?) string? (list/c symbol? string?))]
+          [data-attr/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
+          [data-class
+           (->* [(or/c symbol? string?) string?]
+                [#:case case-style/c]
+                (list/c symbol? string?))]
+          [data-class/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
+          [data-style (-> (or/c symbol? string?) string? (list/c symbol? string?))]
+          [data-style/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
           [data-on
-           (->* [string? string?]
+           (->* [(or/c symbol? string?) string?]
                 [#:once? boolean?
                  #:passive? boolean?
                  #:capture? boolean?
@@ -58,67 +54,71 @@
                  #:outside? boolean?
                  #:prevent? boolean?
                  #:stop? boolean?
-                 #:debounce (or/c string? number? #f)
+                 #:debounce (or/c string? number?)
                  #:debounce-leading? boolean?
                  #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number? #f)
+                 #:throttle (or/c string? number?)
                  #:throttle-noleading? boolean?
                  #:throttle-trailing? boolean?
-                 #:delay (or/c string? number? #f)
+                 #:delay (or/c string? number?)
                  #:viewtransition? boolean?]
-                attr-pair/c)]
+                (list/c symbol? string?))]
           [data-init
-           (->* [string?] [#:delay (or/c string? number? #f) #:viewtransition? boolean?] attr-pair/c)]
+           (->* [string?]
+                [#:delay (or/c string? number?) #:viewtransition? boolean?]
+                (list/c symbol? string?))]
           [data-on-intersect
            (->* [string?]
                 [#:once? boolean?
                  #:half? boolean?
                  #:full? boolean?
                  #:exit? boolean?
-                 #:threshold (or/c string? number? #f)
-                 #:debounce (or/c string? number? #f)
+                 #:threshold (or/c string? number?)
+                 #:debounce (or/c string? number?)
                  #:debounce-leading? boolean?
                  #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number? #f)
+                 #:throttle (or/c string? number?)
                  #:throttle-noleading? boolean?
                  #:throttle-trailing? boolean?
-                 #:delay (or/c string? number? #f)
+                 #:delay (or/c string? number?)
                  #:viewtransition? boolean?]
-                attr-pair/c)]
+                (list/c symbol? string?))]
           [data-on-interval
            (->* [string?]
-                [#:duration (or/c string? number? #f)
+                [#:duration (or/c string? number?)
                  #:duration-leading? boolean?
                  #:viewtransition? boolean?]
-                attr-pair/c)]
+                (list/c symbol? string?))]
           [data-on-signal-patch
            (->* [string?]
-                [#:debounce (or/c string? number? #f)
+                [#:debounce (or/c string? number?)
                  #:debounce-leading? boolean?
                  #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number? #f)
+                 #:throttle (or/c string? number?)
                  #:throttle-noleading? boolean?
                  #:throttle-trailing? boolean?
-                 #:delay (or/c string? number? #f)]
-                attr-pair/c)]
+                 #:delay (or/c string? number?)]
+                (list/c symbol? string?))]
           [data-on-signal-patch-filter
-           (->* [] [#:include (or/c string? #f) #:exclude (or/c string? #f)] attr-pair/c)]
+           (->* []
+                [#:include string? #:exclude string?]
+                (list/c symbol? string?))]
           [data-on-raf
            (->* [string?]
-                [#:throttle (or/c string? number? #f)
+                [#:throttle (or/c string? number?)
                  #:throttle-noleading? boolean?
                  #:throttle-trailing? boolean?]
-                attr-pair/c)]
+                (list/c symbol? string?))]
           [data-on-resize
            (->* [string?]
-                [#:debounce (or/c string? number? #f)
+                [#:debounce (or/c string? number?)
                  #:debounce-leading? boolean?
                  #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number? #f)
+                 #:throttle (or/c string? number?)
                  #:throttle-noleading? boolean?
                  #:throttle-trailing? boolean?]
-                attr-pair/c)]
-          [data-ignore (->* [] [#:self? boolean?] attr-pair/c)]
+                (list/c symbol? string?))]
+          [data-ignore (->* [] [#:self? boolean?] (list/c symbol? string?))]
           [data-scroll-into-view
            (->* []
                 [#:smooth? boolean?
@@ -133,27 +133,28 @@
                  #:vend? boolean?
                  #:vnearest? boolean?
                  #:focus? boolean?]
-                attr-pair/c)]
+                (list/c symbol? string?))]
           [data-persist
            (->* []
-                [#:key (or/c string? #f)
-                 #:include (or/c string? #f)
-                 #:exclude (or/c string? #f)
+                [#:key (or/c symbol? string?)
+                 #:include string?
+                 #:exclude string?
                  #:session? boolean?]
-                attr-pair/c)]
+                (list/c symbol? string?))]
           [data-query-string
            (->* []
-                [#:include (or/c string? #f)
-                 #:exclude (or/c string? #f)
+                [#:include string?
+                 #:exclude string?
                  #:filter? boolean?
                  #:history? boolean?]
-                attr-pair/c)]
+                (list/c symbol? string?))]
           [data-json-signals
            (->* []
-                [#:include (or/c string? #f) #:exclude (or/c string? #f) #:terse? boolean?]
-                attr-pair/c)]
-          [data-preserve-attr (-> (or/c string? (listof string?)) attr-pair/c)]
-          [data-preserve-attrs (-> (or/c string? (listof string?)) attr-pair/c)]))
+                [#:include string?
+                 #:exclude string?
+                 #:terse? boolean?]
+                (list/c symbol? string?))]
+          [data-preserve-attr (-> (or/c string? (listof string?)) (list/c symbol? string?))]))
 
 ;; internal helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -176,12 +177,24 @@
       (list (list "case" (symbol->string case)))
       '()))
 
-(define (timing-mods #:debounce [debounce #f]
+(define (require-parent-modifier who child-key child? parent-key parent)
+  (when (and child? (not parent))
+    (raise-arguments-error who
+                           (format "~a requires ~a" child-key parent-key)
+                           child-key child?
+                           parent-key parent)))
+
+(define (timing-mods #:who [who 'timing-mods]
+                     #:debounce [debounce #f]
                      #:debounce-leading? [debounce-leading? #f]
                      #:debounce-notrailing? [debounce-notrailing? #f]
                      #:throttle [throttle #f]
                      #:throttle-noleading? [throttle-noleading? #f]
                      #:throttle-trailing? [throttle-trailing? #f])
+  (require-parent-modifier who "#:debounce-leading?" debounce-leading? "#:debounce" debounce)
+  (require-parent-modifier who "#:debounce-notrailing?" debounce-notrailing? "#:debounce" debounce)
+  (require-parent-modifier who "#:throttle-noleading?" throttle-noleading? "#:throttle" throttle)
+  (require-parent-modifier who "#:throttle-trailing?" throttle-trailing? "#:throttle" throttle)
   (append (if debounce
               (list (cons "debounce"
                           (append (list (if (number? debounce)
@@ -221,8 +234,21 @@
       (list (list "viewtransition"))
       '()))
 
+(define (normalize-json-keys v)
+  (cond
+    [(hash? v)
+     (for/hash ([(k subv) (in-hash v)])
+       (values (if (symbol? k)
+                   k
+                   (string->symbol k))
+               (normalize-json-keys subv)))]
+    [(list? v)
+     (for/list ([subv (in-list v)])
+       (normalize-json-keys subv))]
+    [else v]))
+
 (define (hash->json h)
-  (jsexpr->string h))
+  (jsexpr->string (normalize-json-keys h)))
 
 (define (hash->js-object h)
   (string-join (for/list ([(k v) (in-hash h)])
@@ -272,15 +298,15 @@
 
 (define (data-bind signal #:case (case #f))
   (define mod-str (build-modifier-string (case-mod #:case case)))
-  (xattr (string-append "data-bind:" signal mod-str) ""))
+  (xattr (string-append "data-bind:" (key->string signal) mod-str) ""))
 
 (define (data-ref signal #:case (case #f))
   (define mod-str (build-modifier-string (case-mod #:case case)))
-  (xattr (string-append "data-ref:" signal mod-str) ""))
+  (xattr (string-append "data-ref:" (key->string signal) mod-str) ""))
 
 (define (data-indicator signal #:case (case #f))
   (define mod-str (build-modifier-string (case-mod #:case case)))
-  (xattr (string-append "data-indicator:" signal mod-str) ""))
+  (xattr (string-append "data-indicator:" (key->string signal) mod-str) ""))
 
 (define (data-ignore-morph)
   (xattr "data-ignore-morph" ""))
@@ -295,17 +321,17 @@
   (xattr "data-replace-url" expression))
 
 (define (data-match-media signal query)
-  (xattr (string-append "data-match-media:" signal) query))
+  (xattr (string-append "data-match-media:" (key->string signal)) query))
 
 ;; keyed + hash-suffixed attributes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (data-signals key value #:ifmissing? [ifmissing? #f] #:case (case #f))
+(define (data-signals key expression #:ifmissing? [ifmissing? #f] #:case (case #f))
   (define ifmissing-mods
     (if ifmissing?
         (list (list "ifmissing"))
         '()))
   (define mod-str (build-modifier-string (append (case-mod #:case case) ifmissing-mods)))
-  (xattr (string-append "data-signals:" (key->string key) mod-str) value))
+  (xattr (string-append "data-signals:" (key->string key) mod-str) expression))
 
 (define (data-signals/hash h #:ifmissing? [ifmissing? #f])
   (define mod-str
@@ -314,28 +340,28 @@
                                '())))
   (xattr (string-append "data-signals" mod-str) (hash->json h)))
 
-(define (data-computed key value #:case (case #f))
+(define (data-computed key expression #:case (case #f))
   (define mod-str (build-modifier-string (case-mod #:case case)))
-  (xattr (string-append "data-computed:" (key->string key) mod-str) value))
+  (xattr (string-append "data-computed:" (key->string key) mod-str) expression))
 
 (define (data-computed/hash h)
   (xattr "data-computed" (hash->js-object h)))
 
-(define (data-attr key value)
-  (xattr (string-append "data-attr:" (key->string key)) value))
+(define (data-attr key expression)
+  (xattr (string-append "data-attr:" (key->string key)) expression))
 
 (define (data-attr/hash h)
   (xattr "data-attr" (hash->js-object h)))
 
-(define (data-class key value #:case (case #f))
+(define (data-class key expression #:case (case #f))
   (define mod-str (build-modifier-string (case-mod #:case case)))
-  (xattr (string-append "data-class:" (key->string key) mod-str) value))
+  (xattr (string-append "data-class:" (key->string key) mod-str) expression))
 
 (define (data-class/hash h)
   (xattr "data-class" (hash->js-object h)))
 
-(define (data-style key value)
-  (xattr (string-append "data-style:" (key->string key)) value))
+(define (data-style key expression)
+  (xattr (string-append "data-style:" (key->string key)) expression))
 
 (define (data-style/hash h)
   (xattr "data-style" (hash->js-object h)))
@@ -388,7 +414,8 @@
             (if stop?
                 (list (list "stop"))
                 '())
-            (timing-mods #:debounce debounce
+            (timing-mods #:who 'data-on
+                         #:debounce debounce
                          #:debounce-leading? debounce-leading?
                          #:debounce-notrailing? debounce-notrailing?
                          #:throttle throttle
@@ -397,7 +424,7 @@
             (delay-mod #:delay delay)
             (viewtransition-mod #:viewtransition? viewtransition?)))
   (define mod-str (build-modifier-string mods))
-  (xattr (string-append "data-on:" event mod-str) expression))
+  (xattr (string-append "data-on:" (key->string event) mod-str) expression))
 
 ;; other event attributes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -444,7 +471,8 @@
                                 (number->string threshold)
                                 threshold)))
                 '())
-            (timing-mods #:debounce debounce
+            (timing-mods #:who 'data-on-intersect
+                         #:debounce debounce
                          #:debounce-leading? debounce-leading?
                          #:debounce-notrailing? debounce-notrailing?
                          #:throttle throttle
@@ -459,6 +487,11 @@
                           #:duration [duration #f]
                           #:duration-leading? [duration-leading? #f]
                           #:viewtransition? [viewtransition? #f])
+  (require-parent-modifier 'data-on-interval
+                           "#:duration-leading?"
+                           duration-leading?
+                           "#:duration"
+                           duration)
   (define mods
     (append (if duration
                 (list (cons "duration"
@@ -486,7 +519,8 @@
                               #:delay (delay
                                         #f))
   (define mods
-    (append (timing-mods #:debounce debounce
+    (append (timing-mods #:who 'data-on-signal-patch
+                         #:debounce debounce
                          #:debounce-leading? debounce-leading?
                          #:debounce-notrailing? debounce-notrailing?
                          #:throttle throttle
@@ -501,7 +535,8 @@
                      #:throttle-noleading? [throttle-noleading? #f]
                      #:throttle-trailing? [throttle-trailing? #f])
   (define mods
-    (timing-mods #:throttle throttle
+    (timing-mods #:who 'data-on-raf
+                 #:throttle throttle
                  #:throttle-noleading? throttle-noleading?
                  #:throttle-trailing? throttle-trailing?))
   (define mod-str (build-modifier-string mods))
@@ -515,7 +550,8 @@
                         #:throttle-noleading? [throttle-noleading? #f]
                         #:throttle-trailing? [throttle-trailing? #f])
   (define mods
-    (timing-mods #:debounce debounce
+    (timing-mods #:who 'data-on-resize
+                 #:debounce debounce
                  #:debounce-leading? debounce-leading?
                  #:debounce-notrailing? debounce-notrailing?
                  #:throttle throttle
@@ -595,7 +631,7 @@
                                '())))
   (define key-part
     (if key
-        (string-append ":" key)
+        (string-append ":" (key->string key))
         ""))
   (define value
     (if (or include exclude)
@@ -638,6 +674,3 @@
         (string-join attrs " ")
         attrs))
   (xattr "data-preserve-attr" value))
-
-(define (data-preserve-attrs attrs)
-  (data-preserve-attr attrs))
