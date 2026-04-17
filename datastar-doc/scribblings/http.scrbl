@@ -32,7 +32,7 @@ Provides helper functions for Datastar backend actions:
 @defmodule[datastar/http/request]
 
 @defproc[(read-signals [request request?]) jsexpr?]{
-Parses incoming signal data from the browser. For GET requests, extracts data from the @tt{datastar} query parameter. For other methods, parses the request body as JSON.
+Parses incoming signal data from the browser. For GET and DELETE requests, extracts data from the @tt{datastar} query parameter. For other methods, parses the request body as JSON.
 }
 
 @defproc[(datastar-request? [request request?]) boolean?]{

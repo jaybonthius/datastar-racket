@@ -23,7 +23,7 @@
                  #:retry (or/c 'auto 'error 'always 'never)
                  #:retry-interval exact-nonnegative-integer?
                  #:retry-scaler number?
-                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-wait exact-nonnegative-integer?
                  #:retry-max-count exact-nonnegative-integer?
                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
@@ -39,7 +39,7 @@
                  #:retry (or/c 'auto 'error 'always 'never)
                  #:retry-interval exact-nonnegative-integer?
                  #:retry-scaler number?
-                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-wait exact-nonnegative-integer?
                  #:retry-max-count exact-nonnegative-integer?
                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
@@ -55,7 +55,7 @@
                  #:retry (or/c 'auto 'error 'always 'never)
                  #:retry-interval exact-nonnegative-integer?
                  #:retry-scaler number?
-                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-wait exact-nonnegative-integer?
                  #:retry-max-count exact-nonnegative-integer?
                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
@@ -71,7 +71,7 @@
                  #:retry (or/c 'auto 'error 'always 'never)
                  #:retry-interval exact-nonnegative-integer?
                  #:retry-scaler number?
-                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-wait exact-nonnegative-integer?
                  #:retry-max-count exact-nonnegative-integer?
                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
@@ -87,7 +87,7 @@
                  #:retry (or/c 'auto 'error 'always 'never)
                  #:retry-interval exact-nonnegative-integer?
                  #:retry-scaler number?
-                 #:retry-max-wait-ms exact-nonnegative-integer?
+                 #:retry-max-wait exact-nonnegative-integer?
                  #:retry-max-count exact-nonnegative-integer?
                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
                 string?)]
@@ -150,7 +150,7 @@
                               retry
                               retry-interval
                               retry-scaler
-                              retry-max-wait-ms
+                              retry-max-wait
                               retry-max-count
                               request-cancellation)
   (define fs-include? (provided? fs-include))
@@ -177,8 +177,8 @@
                        (string-append "retryInterval: " (js-value retry-interval)))
                   (and (provided? retry-scaler)
                        (string-append "retryScaler: " (js-value retry-scaler)))
-                  (and (provided? retry-max-wait-ms)
-                       (string-append "retryMaxWaitMs: " (js-value retry-max-wait-ms)))
+                  (and (provided? retry-max-wait)
+                       (string-append "retryMaxWait: " (js-value retry-max-wait)))
                   (and (provided? retry-max-count)
                        (string-append "retryMaxCount: " (js-value retry-max-count)))
                   (and (provided? request-cancellation)
@@ -201,7 +201,7 @@
                 #:retry [retry the-unsupplied-arg]
                 #:retry-interval [retry-interval the-unsupplied-arg]
                 #:retry-scaler [retry-scaler the-unsupplied-arg]
-                #:retry-max-wait-ms [retry-max-wait-ms the-unsupplied-arg]
+                #:retry-max-wait [retry-max-wait the-unsupplied-arg]
                 #:retry-max-count [retry-max-count the-unsupplied-arg]
                 #:request-cancellation [request-cancellation the-unsupplied-arg])
     (define opts-str
@@ -215,7 +215,7 @@
                             retry
                             retry-interval
                             retry-scaler
-                            retry-max-wait-ms
+                            retry-max-wait
                             retry-max-count
                             request-cancellation))
     (if opts-str

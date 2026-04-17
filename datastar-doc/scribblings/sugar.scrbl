@@ -15,7 +15,7 @@ Convenience functions for building Datastar HTML attributes and action expressio
 @defmodule[datastar/sugar]
 
 @defthing[datastar-version string?]{
-The Datastar version string (e.g., @racket["1.0.0-RC.8"]).
+The Datastar version string (e.g., @racket["v1.0.0"]).
 }
 
 @defthing[datastar-cdn-url string?]{
@@ -78,19 +78,32 @@ Hash keys must be symbols or strings. Values may be expression strings, JSON val
 }
 
 @defproc[(data-bind [signal (or/c symbol? string?)]
-                    [#:case case case-style/c]) list?]{
+                    [#:case case case-style/c]
+                    [#:prop prop (or/c symbol? string?)]
+                    [#:event event (or/c (or/c symbol? string?)
+                                         (listof (or/c symbol? string?)))]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-bind"]{@tt{data-bind}} attribute that creates a signal (if one doesn't already exist) and sets up two-way data binding between it and an element's value.
 
 This SDK uses keyed form only (@tt{data-bind:signal}).
 
-@racket[#:case] emits Datastar's @tt{__case.*} modifier.
+@itemlist[
+  @item{@racket[#:case] emits Datastar's @tt{__case.*} modifier.}
+  @item{@racket[#:prop] emits @tt{__prop.<property>}.}
+  @item{@racket[#:event] emits @tt{__event.<event...>} (single event or list).}
+]
+
+When multiple modifiers are used, this helper emits them in deterministic order: @tt{__case}, then @tt{__prop}, then @tt{__event}.
 
 @examples[#:eval ev #:label #f
 `(input (,(data-bind 'username)))
 ]
 
 @examples[#:eval ev #:label #f
-`(input (,(data-bind "user-name" #:case 'kebab)))
+`(my-toggle (,(data-bind "is-checked" #:prop "checked" #:event "change")))
+]
+
+@examples[#:eval ev #:label #f
+`(input (,(data-bind "query" #:prop 'value #:event '("input" "change"))))
 ]
 }
 
@@ -629,7 +642,7 @@ All keyword options are pass-through: explicitly provided values are serialized 
               [#:retry retry (or/c 'auto 'error 'always 'never)]
               [#:retry-interval retry-interval exact-nonnegative-integer?]
               [#:retry-scaler retry-scaler number?]
-              [#:retry-max-wait-ms retry-max-wait-ms exact-nonnegative-integer?]
+              [#:retry-max-wait retry-max-wait exact-nonnegative-integer?]
               [#:retry-max-count retry-max-count exact-nonnegative-integer?]
               [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
          string?]{
@@ -649,7 +662,7 @@ The @racket[#:payload] keyword accepts a raw JavaScript expression string. The @
       (list @racket[#:retry]                     @tt{retry}                    @racket['auto])
       (list @racket[#:retry-interval]            @tt{retryInterval}            @racket[1000])
       (list @racket[#:retry-scaler]              @tt{retryScaler}              @racket[2])
-      (list @racket[#:retry-max-wait-ms]         @tt{retryMaxWaitMs}           @racket[30000])
+      (list @racket[#:retry-max-wait]         @tt{retryMaxWait}           @racket[30000])
       (list @racket[#:retry-max-count]           @tt{retryMaxCount}            @racket[10])
       (list @racket[#:request-cancellation]      @tt{requestCancellation}      @racket['auto]))]
 
@@ -676,7 +689,7 @@ The @racket[#:payload] keyword accepts a raw JavaScript expression string. The @
                [#:retry retry (or/c 'auto 'error 'always 'never)]
                [#:retry-interval retry-interval exact-nonnegative-integer?]
                [#:retry-scaler retry-scaler number?]
-               [#:retry-max-wait-ms retry-max-wait-ms exact-nonnegative-integer?]
+               [#:retry-max-wait retry-max-wait exact-nonnegative-integer?]
                [#:retry-max-count retry-max-count exact-nonnegative-integer?]
                [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
           string?]{
@@ -698,7 +711,7 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
               [#:retry retry (or/c 'auto 'error 'always 'never)]
               [#:retry-interval retry-interval exact-nonnegative-integer?]
               [#:retry-scaler retry-scaler number?]
-              [#:retry-max-wait-ms retry-max-wait-ms exact-nonnegative-integer?]
+              [#:retry-max-wait retry-max-wait exact-nonnegative-integer?]
               [#:retry-max-count retry-max-count exact-nonnegative-integer?]
               [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
          string?]{
@@ -716,7 +729,7 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
                 [#:retry retry (or/c 'auto 'error 'always 'never)]
                 [#:retry-interval retry-interval exact-nonnegative-integer?]
                 [#:retry-scaler retry-scaler number?]
-                [#:retry-max-wait-ms retry-max-wait-ms exact-nonnegative-integer?]
+                [#:retry-max-wait retry-max-wait exact-nonnegative-integer?]
                 [#:retry-max-count retry-max-count exact-nonnegative-integer?]
                 [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
            string?]{
@@ -734,7 +747,7 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
                  [#:retry retry (or/c 'auto 'error 'always 'never)]
                  [#:retry-interval retry-interval exact-nonnegative-integer?]
                  [#:retry-scaler retry-scaler number?]
-                 [#:retry-max-wait-ms retry-max-wait-ms exact-nonnegative-integer?]
+                 [#:retry-max-wait retry-max-wait exact-nonnegative-integer?]
                  [#:retry-max-count retry-max-count exact-nonnegative-integer?]
                  [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
             string?]{

@@ -5,6 +5,8 @@
          racket/string)
 
 (define case-style/c (or/c 'camel 'kebab 'snake 'pascal))
+(define bind-token/c (or/c symbol? string?))
+(define bind-events/c (or/c bind-token/c (listof bind-token/c)))
 
 (provide case-style/c
          (contract-out
@@ -12,7 +14,10 @@
           [data-text (-> string? (list/c symbol? string?))]
           [data-effect (-> string? (list/c symbol? string?))]
           [data-animate (-> string? (list/c symbol? string?))]
-          [data-bind (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
+          [data-bind
+           (->* [bind-token/c]
+                [#:case case-style/c #:prop bind-token/c #:event bind-events/c]
+                (list/c symbol? string?))]
           [data-ref (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
           [data-indicator
            (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
@@ -282,6 +287,14 @@
       (symbol->string key)
       key))
 
+(define (normalize-bind-events events)
+  (define event-list
+    (if (list? events)
+        events
+        (list events)))
+  (for/list ([event-name (in-list event-list)])
+    (key->string event-name)))
+
 ;; simple value attributes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (data-show expression)
@@ -296,8 +309,19 @@
 (define (data-animate expression)
   (xattr "data-animate" expression))
 
-(define (data-bind signal #:case (case #f))
-  (define mod-str (build-modifier-string (case-mod #:case case)))
+(define (data-bind signal
+                   #:case (case #f)
+                   #:prop [prop #f]
+                   #:event [event #f])
+  (define prop-mods
+    (if prop
+        (list (list "prop" (key->string prop)))
+        '()))
+  (define event-mods
+    (if event
+        (list (cons "event" (normalize-bind-events event)))
+        '()))
+  (define mod-str (build-modifier-string (append (case-mod #:case case) prop-mods event-mods)))
   (xattr (string-append "data-bind:" (key->string signal) mod-str) ""))
 
 (define (data-ref signal #:case (case #f))

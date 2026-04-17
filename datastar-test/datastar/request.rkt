@@ -9,8 +9,8 @@
 (provide request-tests)
 
 ;; helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define (make-get-request signals-json)
-  (make-request #"GET"
+(define (make-query-request method signals-json)
+  (make-request (string->bytes/utf-8 method)
                 (url "http" #f "localhost" 8080 #t (list (path/param "test" '())) '() #f)
                 '()
                 (delay
@@ -19,6 +19,12 @@
                 "127.0.0.1"
                 8080
                 "127.0.0.1"))
+
+(define (make-get-request signals-json)
+  (make-query-request "GET" signals-json))
+
+(define (make-delete-request signals-json)
+  (make-query-request "DELETE" signals-json))
 
 (define (make-post-request body-json)
   (make-request #"POST"
@@ -51,6 +57,12 @@
       (check-equal? (hash-ref signals 'count) 42)
       (check-equal? (hash-ref signals 'msg) "hello"))
 
+    (test-case "read-signals parses DELETE request with datastar query param"
+      (define req (make-delete-request "{\"id\":42,\"confirmed\":true}"))
+      (define signals (read-signals req))
+      (check-equal? (hash-ref signals 'id) 42)
+      (check-equal? (hash-ref signals 'confirmed) #t))
+
     (test-case "read-signals parses POST request with JSON body"
       (define req (make-post-request "{\"name\":\"test\",\"value\":true}"))
       (define signals (read-signals req))
@@ -66,6 +78,19 @@
     (test-case "read-signals errors on GET without datastar param"
       (define req
         (make-request #"GET"
+                      (url "http" #f "localhost" 8080 #t (list (path/param "test" '())) '() #f)
+                      '()
+                      (delay
+                        '())
+                      #f
+                      "127.0.0.1"
+                      8080
+                      "127.0.0.1"))
+      (check-exn exn:fail? (lambda () (read-signals req))))
+
+    (test-case "read-signals errors on DELETE without datastar param"
+      (define req
+        (make-request #"DELETE"
                       (url "http" #f "localhost" 8080 #t (list (path/param "test" '())) '() #f)
                       '()
                       (delay

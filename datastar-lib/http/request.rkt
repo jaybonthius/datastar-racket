@@ -12,7 +12,7 @@
 
 (define (read-signals request)
   (match (request-method request)
-    [#"GET"
+    [(or #"GET" #"DELETE")
      (define datastar-binding
        (findf (lambda (binding)
                 (equal? (bytes->string/utf-8 (binding-id binding)) (symbol->string datastar-key)))

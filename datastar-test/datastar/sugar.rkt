@@ -142,11 +142,11 @@
     (test-case "retry-scaler fractional"
       (check-equal? (get "/events" #:retry-scaler 1.5) "@get('/events', {retryScaler: 1.5})"))
 
-    ;; retry-max-wait-ms ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; retry-max-wait ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    (test-case "retry-max-wait-ms"
-      (check-equal? (get "/events" #:retry-max-wait-ms 60000)
-                    "@get('/events', {retryMaxWaitMs: 60000})"))
+    (test-case "retry-max-wait"
+      (check-equal? (get "/events" #:retry-max-wait 60000)
+                    "@get('/events', {retryMaxWait: 60000})"))
 
     ;; retry-max-count ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -227,8 +227,8 @@
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-interval #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-scaler "2")))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-scaler #f)))
-      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-wait-ms -1)))
-      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-wait-ms #f)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-wait -1)))
+      (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-wait #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-count -1)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:retry-max-count #f)))
       (check-exn exn:fail:contract? (lambda () (get "/events" #:request-cancellation 123)))
@@ -394,7 +394,7 @@
       (check-exn exn:fail:contract?
                  (lambda () (get "/events" #:retry-scaler the-unsupplied-arg)))
       (check-exn exn:fail:contract?
-                 (lambda () (get "/events" #:retry-max-wait-ms the-unsupplied-arg)))
+                 (lambda () (get "/events" #:retry-max-wait the-unsupplied-arg)))
       (check-exn exn:fail:contract?
                  (lambda () (get "/events" #:retry-max-count the-unsupplied-arg)))
       (check-exn exn:fail:contract?
@@ -479,6 +479,34 @@
     (test-case "data-bind case modifier"
       (check-equal? (data-bind "foo-bar" #:case 'kebab)
                     (list (string->symbol "data-bind:foo-bar__case.kebab") "")))
+
+    (test-case "data-bind supports __prop and __event modifiers"
+      (check-equal?
+       (data-bind "is-checked" #:prop "checked" #:event "change")
+       (list (string->symbol "data-bind:is-checked__prop.checked__event.change") ""))
+      (check-equal?
+       (xexpr->string `(my-toggle (,(data-bind "is-checked" #:prop "checked" #:event "change"))))
+       "<my-toggle data-bind:is-checked__prop.checked__event.change=\"\"></my-toggle>"))
+
+    (test-case "data-bind supports __event with multiple events"
+      (check-equal?
+       (data-bind "query" #:prop 'value #:event '("input" "change"))
+       (list (string->symbol "data-bind:query__prop.value__event.input.change") "")))
+
+    (test-case "data-bind modifier ordering is deterministic"
+      (check-equal?
+       (data-bind "query" #:event '("input" "change") #:case 'snake #:prop "value")
+       (list (string->symbol "data-bind:query__case.snake__prop.value__event.input.change") "")))
+
+    (test-case "data-bind allows __prop without __event"
+      (check-equal?
+       (data-bind "is-checked" #:prop "checked")
+       (list (string->symbol "data-bind:is-checked__prop.checked") "")))
+
+    (test-case "data-bind allows __event without __prop"
+      (check-equal?
+       (data-bind "query" #:event "input")
+       (list (string->symbol "data-bind:query__event.input") "")))
 
     (test-case "data-bind with positional value no longer supported"
       (check-exn exn:fail? (lambda () (data-bind "foo" "fooBar"))))
@@ -764,7 +792,10 @@
 
     (test-case "data-on with document"
       (check-equal? (data-on "selectionchange" "fn()" #:document? #t)
-                    (list 'data-on:selectionchange__document "fn()")))
+                    (list 'data-on:selectionchange__document "fn()"))
+      (check-equal?
+       (xexpr->string `(div (,(data-on "selectionchange" "fn()" #:document? #t)) ""))
+       "<div data-on:selectionchange__document=\"fn()\"></div>"))
 
     (test-case "data-on with outside"
       (check-equal? (data-on "click" "fn()" #:outside? #t) (list 'data-on:click__outside "fn()")))
@@ -1554,9 +1585,14 @@
 (define constants-tests
   (test-suite "constants"
 
+    (test-case "Datastar version is stable v1.0.0"
+      (check-equal? datastar-version "v1.0.0"))
+
     (test-case "CDN URLs contain version"
       (check-true (string-contains? datastar-cdn-url datastar-version))
-      (check-true (string-contains? datastar-cdn-map-url datastar-version)))
+      (check-true (string-contains? datastar-cdn-map-url datastar-version))
+      (check-true (string-contains? datastar-cdn-url "@v1.0.0/"))
+      (check-true (string-contains? datastar-cdn-map-url "@v1.0.0/")))
 
     (test-case "CDN URLs have correct suffix"
       (check-true (string-suffix? datastar-cdn-url "/bundles/datastar.js"))
