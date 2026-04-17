@@ -19,17 +19,21 @@
 
 @defmodule[datastar/http]
 
-Provides helper functions for Datastar backend actions:
+Provides Datastar backend HTTP modules for reading incoming signals and producing SSE or one-shot responses.
 
 @itemlist[
-  @item{@bold{@seclink["requests"]{Requests}} --- Parse Datastar action request signals from incoming HTTP requests.}
-  @item{@bold{@seclink["responses"]{Responses}} --- Construct Datastar-compatible responses, including @seclink["sse"]{SSE event streams} and @seclink["one-shot-responses"]{one-shot HTTP responses}.}
+  @item{@bold{Requests} (@racketmodname[datastar/http/request]) --- Parse Datastar action request signals from incoming HTTP requests.}
+@item{@bold{SSE event streams} (@racketmodname[datastar/http/sse]) --- @tt{text/event-stream} responses for Datastar events, from single immediate updates to long-lived streams.}
+  @item{@bold{One-shot HTTP responses} (@racketmodname[datastar/http/response]) --- non-SSE responses with Datastar-aware headers using @tt{text/html}, @tt{application/json}, or @tt{text/javascript}.}
 ]
 
+For protocol context, see @link["https://data-star.dev/guide/backend_requests"]{Datastar Backend Requests} and @link["https://data-star.dev/reference/actions#response-handling"]{Datastar Response Handling}.
 
 @section[#:tag "requests"]{Requests}
 
 @defmodule[datastar/http/request]
+
+Read Datastar request payloads from incoming backend action calls. For request/transport details, see @link["https://data-star.dev/guide/backend_requests"]{Datastar Backend Requests}.
 
 @defproc[(read-signals [request request?]) jsexpr?]{
 Parses incoming signal data from the browser. For GET and DELETE requests, extracts data from the @tt{datastar} query parameter. For other methods, parses the request body as JSON.
@@ -39,33 +43,32 @@ Parses incoming signal data from the browser. For GET and DELETE requests, extra
 Returns @racket[#t] if the request has a @tt{Datastar-Request: true} header, meaning it came from a Datastar action. The check is case-insensitive.
 }
 
-@section[#:tag "responses"]{Responses}
 
-Datastar response helpers are split across two modules:
-
-@itemlist[
-  @item{@bold{@seclink["sse"]{SSE event streams}} (@racketmodname[datastar/http/sse]) --- @tt{text/event-stream} responses for Datastar events, from single immediate updates to long-lived streams.}
-  @item{@bold{@seclink["one-shot-responses"]{One-shot HTTP responses}} (@racketmodname[datastar/http/response]) --- non-SSE responses with Datastar-aware headers using @tt{text/html}, @tt{application/json}, or @tt{text/javascript}.}
-]
-
-The @link["https://data-star.dev/guide/the_tao_of_datastar#sse-responses"]{Tao of Datastar} recommends SSE event streams as the default for most backend actions.
-
-@bold{Serializer omission policy:} default-valued Datastar fields are omitted only by wire serializers in these modules (SSE event serialization in @racketmodname[datastar/http/sse] and one-shot response header serialization in @racketmodname[datastar/http/response]).
-
-@subsection[#:tag "sse"]{SSE}
+@section[#:tag "sse"]{SSE}
 
 @defmodule[datastar/http/sse]
 
-Functions for creating and managing @link["https://data-star.dev/reference/sse_events"]{Datastar SSE events}. See the @link["https://data-star.dev/reference/sse_events"]{Datastar SSE events reference} for full details on event types and their data lines.
+Send Datastar SSE events from backend actions. See the @link["https://data-star.dev/reference/sse_events"]{Datastar SSE events reference} for event formats and data-line semantics.
 
-@subsubsection{Server Setup}
+@subsection[#:tag "server-setup"]{Server Setup}
 
-@defthing[datastar-tcp@ (unit/c (import) (export tcp^))]{
-A @racket[tcp^] unit for use with @racket[serve]'s @racket[#:tcp@] parameter. Enables instant client disconnect detection for SSE connections.
+Use @racket[dispatch/servlet] from @racket[web-server/servlet-dispatch] to convert your servlet into a dispatcher, then choose a @racket[serve] configuration that matches your stream behavior.
 
-When provided, @racket[datastar-sse] monitors the underlying TCP input port and interrupts @racket[on-open] as soon as the client goes away, ensuring prompt cleanup via @racket[on-close]. Without it, everything still works but disconnections are only detected on the next failed write.
+@bold{Decision guide}
 
-Use @racket[dispatch/servlet] from @racket[web-server/servlet-dispatch] to convert your servlet into a dispatcher for @racket[serve]:
+@itemlist[
+  @item{@bold{Short-lived SSE} (send one/few events, then return): defaults usually work; these transport knobs are optional.}
+  @item{@bold{Long-lived or mostly idle streams} (subscriptions, optional CQRS read-model updates): configure @racket[#:safety-limits] so response timeouts do not terminate idle handlers (for example, @racket[+inf.0], or periodic chunks/heartbeats).}
+  @item{@bold{Blocked @racket[on-open] loop + prompt disconnect cleanup}: use both @racket[#:connection-close? #t] and @racket[#:tcp@ datastar-tcp@].}
+]
+
+@bold{Minimal setup}
+
+@codeblock{
+(serve #:dispatch (dispatch/servlet handler))
+}
+
+@bold{Robust setup (long-lived streams / prompt blocked-loop disconnect cleanup)}
 
 @codeblock{
 (serve #:dispatch (dispatch/servlet handler)
@@ -75,26 +78,21 @@ Use @racket[dispatch/servlet] from @racket[web-server/servlet-dispatch] to conve
                                            #:response-send-timeout +inf.0))
 }
 
-@racket[dispatch/servlet] composes with the standard web server dispatchers (@tt{dispatch-sequencer}, @tt{dispatch-filter}, @tt{dispatch-files}, etc.) for routing and static file serving. See the @link["https://github.com/jaybonthius/datastar-racket/tree/main/examples"]{examples directory} for a full example.
+@defthing[datastar-tcp@ (unit/c (import) (export tcp^))]{
+A @racket[tcp^] unit for @racket[serve]'s @racket[#:tcp@] parameter. It enables faster disconnect detection for SSE connections.
+
+When provided, @racket[datastar-sse] monitors the underlying TCP input port and interrupts @racket[on-open] when the client disconnects, so @racket[on-close] can run sooner.
 }
 
-@subsubsection{SSE Generator}
+@subsection{SSE Generator}
+
+Create SSE responses and send events through an @racket[sse?] generator.
 
 @defproc[(datastar-sse [on-open (-> sse? any)]
                        [#:on-close on-close (-> sse? any)]) response?]{
 Creates an HTTP response with proper SSE headers. Calls @racket[on-open] with a fresh @racket[sse?] generator that can be used to send events to the client. When @racket[on-open] returns (or raises an exception), the connection is closed and @racket[on-close] is called if provided.
 
-When the server is set up with @racket[datastar-tcp@], client disconnections are detected immediately: the SDK monitors the TCP input port and interrupts @racket[on-open] as soon as the client goes away, ensuring prompt cleanup via @racket[on-close].
-
-@bold{Important:} When using @racket[serve], the following settings are required for SSE to work correctly:
-
-@itemlist[
-  @item{@racket[#:tcp@] should be @racket[datastar-tcp@] for instant disconnect detection. Without this, disconnections are only detected on the next failed write, which means @racket[on-close] may not fire promptly if the handler is blocked waiting for data.}
-
-  @item{@racket[#:connection-close?] must be @racket[#t]. Without this, the web server uses chunked transfer encoding with an internal pipe that silently absorbs writes to dead connections, preventing disconnect detection from working and @racket[on-close] from firing.}
-
-  @item{@racket[#:safety-limits] must disable both @racket[#:response-timeout] and @racket[#:response-send-timeout] (set to @racket[+inf.0]). The defaults of 60 seconds will kill idle SSE connections. @racket[#:response-timeout] limits the total time a handler can run, and @racket[#:response-send-timeout] limits the time between successive writes. Both must be infinite for long-lived SSE connections.}
-]
+Configure @racket[serve] using @seclink["server-setup"]{Server Setup}: minimal setup for short-lived streams, robust setup for long-lived streams or fast disconnect handling.
 }
 
 @defproc[(sse? [v any/c]) boolean?]{
@@ -109,9 +107,9 @@ Explicitly closes the SSE connection. This is called automatically when the @rac
 Returns @racket[#t] if the SSE connection is closed, either because @racket[close-sse] was called or because the underlying output port was closed (e.g., client disconnected). This is a non-destructive check that does not attempt to write to the connection.
 }
 
-@subsubsection{Locking}
+@subsection{Locking}
 
-All send functions are thread-safe: multiple threads can send events through the same generator and delivery order is serialized. If multiple threads share a single generator, use @racket[with-sse-lock] to send a group of events without interleaving.
+Coordinate concurrent senders with explicit SSE locking. All send functions are thread-safe: multiple threads can send events through the same generator and delivery order is serialized. If multiple threads share a single generator, use @racket[with-sse-lock] to send a group of events without interleaving.
 
 @defproc[(call-with-sse-lock [sse sse?] [thunk (-> any)]) any]{
 Holds the SSE generator's lock for the duration of @racket[thunk], preventing concurrent sending of SSE events. This ensures that multiple sends are delivered as an atomic batch without events from other threads interleaving.
@@ -142,7 +140,9 @@ Syntax form that wraps @racket[body ...] in a call to @racket[call-with-sse-lock
 ]
 }
 
-@subsubsection[#:tag "signals"]{Signals}
+@subsection[#:tag "signals"]{Signals}
+
+Send signal patch events to add, update, or remove client-side signals.
 
 @defproc[(patch-signals [sse sse?]
                          [signals (or/c string? jsexpr?)]
@@ -163,7 +163,9 @@ Convenience wrapper around @racket[patch-signals] for removing one or more signa
 Dot notation paths are expanded to nested objects, so @racket["user.name"] becomes @tt{{"user":{"name":null}}}.
 }
 
-@subsubsection[#:tag "elements"]{Elements}
+@subsection[#:tag "elements"]{Elements}
+
+Send element patch events to morph, insert, replace, or remove DOM content.
 
 @defproc[(patch-elements [sse sse?]
                           [elements (or/c string? #f)]
@@ -224,7 +226,9 @@ Contract for valid namespaces: @racket['html], @racket['svg], or @racket['mathml
 Removes elements from the DOM by CSS selector. Convenience function that calls @racket[patch-elements] with @racket['remove].
 }
 
-@subsubsection[#:tag "scripts"]{Scripts}
+@subsection[#:tag "scripts"]{Scripts}
+
+Run browser-side scripts from SSE responses. See @link["https://data-star.dev/guide/datastar_expressions#executing-scripts"]{Datastar script execution guidance} for expression semantics.
 
 @defproc[(execute-script [sse sse?]
                           [script string?]
@@ -255,9 +259,9 @@ Logs a message to the browser console via @tt{console.error}. This is a convenie
 Updates the browser URL without navigating, using @tt{window.history.replaceState}. This is a convenience function that calls @racket[execute-script].
 }
 
-@subsubsection[#:tag "compression"]{Compression}
+@subsection[#:tag "compression"]{Compression}
 
-To add compression, wrap your app handler with @racket[wrap-compress] from @racketmodname[web-server-compress]:
+Compress SSE responses by wrapping your app handler with @racket[wrap-compress] from @racketmodname[web-server-compress]:
 
 @codeblock{
 (require datastar
@@ -287,11 +291,13 @@ To customize the encoding priority or tune per-encoding parameters:
 
 For single-encoding use, @racket[wrap-brotli-compress] and @racket[wrap-zstd-compress] are also available. See the @racketmodname[web-server-compress] docs for the full API.
 
-@subsection[#:tag "one-shot-responses"]{One-Shot Responses (Non-SSE)}
+@section[#:tag "one-shot-responses"]{One-Shot Responses (Non-SSE)}
 
 @defmodule[datastar/http/response]
 
-The @link["https://data-star.dev/guide/the_tao_of_datastar#sse-responses"]{Tao of Datastar} recommends using @seclink["sse"]{SSE event streams} by default. Non-SSE responses can still be useful when:
+Build Datastar-compatible non-SSE responses when a regular HTTP body is sufficient. The @link["https://data-star.dev/guide/the_tao_of_datastar#sse-responses"]{Tao of Datastar} recommends using @seclink["sse"]{SSE event streams} by default; see @link["https://data-star.dev/reference/actions#response-handling"]{Datastar Response Handling} for client-side behavior.
+
+Non-SSE responses can still be useful when:
 
 @itemlist[
   @item{you are integrating with an existing non-SSE endpoint}

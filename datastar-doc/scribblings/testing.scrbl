@@ -11,7 +11,11 @@
 
 @defmodule[datastar/testing]
 
-Mock SSE generators for testing Datastar handlers without a real HTTP connection. Require this module separately from @racket[datastar].
+Test SSE-producing handlers without opening a real HTTP connection. This module provides mock generators and parsed event values for assertions. Require it separately from @racket[datastar].
+
+@section[#:tag "testing-generators"]{Generator Helpers}
+
+Create mock @racket[sse?] values for unit tests and inspect emitted output.
 
 @defproc[(make-mock-sse) (values sse? (-> string?))]{
 Creates a mock @racket[sse?] generator that works with all the normal send functions (@racket[patch-elements], @racket[patch-signals], etc.) but doesn't touch the network. Returns two values: the generator, and a thunk that returns all the SSE text that has been sent through it so far.
@@ -38,6 +42,10 @@ The events are parsed from the same SSE text that would go over the wire, so the
 (sse-event-type (second events))
 ]
 }
+
+@section[#:tag "testing-event-struct"]{Event Struct}
+
+Use @racket[sse-event] values to assert exact wire-level SSE output in tests.
 
 @defstruct*[sse-event ([type string?]
                         [id (or/c string? #f)]

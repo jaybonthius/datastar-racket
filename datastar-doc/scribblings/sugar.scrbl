@@ -8,11 +8,30 @@
 
 @title[#:tag "sugar"]{Sugar}
 
-Convenience functions for building Datastar HTML attributes and action expressions.
-
-@bold{Pass-through policy:} sugar helpers build expressions/attributes from the arguments you provide. They do not apply serializer-style default pruning. For example, passing @racket[#:open-when-hidden? #f] still emits @tt{openWhenHidden: false}, and passing @racket[#:duration "1s"] still emits @tt{__duration.1s}.
-
 @defmodule[datastar/sugar]
+
+Provides convenience functions for building Datastar HTML attributes and action expressions.
+
+@itemlist[
+  @item{@bold{Attributes} (@racketmodname[datastar/http/request]) --- Functions for generating @link["https://data-star.dev/reference/attributes"]{Datastar @tt{data-*} attributes} as x-expression attribute pairs.}
+  @item{@bold{Actions} (@racketmodname[datastar/sugar/attributes]) --- Functions for generating @link["https://data-star.dev/reference/actions"]{Datastar action} strings in x-expression templates.}
+]
+
+Without sugar:
+
+@racketblock[
+`(button ((data-on:click__debounce.500ms "@post('/search')")
+          (data-class:active "$enabled")
+          (data-show "$query != ''")))
+]
+
+With sugar:
+
+@racketblock[
+`(button (,(data-on 'click (post "/search") #:debounce "500ms")
+          ,(data-class 'active "$enabled")
+          ,(data-show "$query != ''")))
+]
 
 @defthing[datastar-version string?]{
 The Datastar version string (e.g., @racket["v1.0.0"]).
@@ -35,24 +54,6 @@ URL for the source map corresponding to @racket[datastar-cdn-url].
 @defmodule[datastar/sugar/attributes]
 
 Functions for generating Datastar @tt{data-*} @link["https://data-star.dev/reference/attributes"]{HTML attributes} as x-expression attribute pairs. Helpers return @racket[(list 'attr-name "value")] and drop directly into x-expression templates via unquote. See the @link["https://data-star.dev/reference/attributes"]{Datastar attribute reference} for full details on each attribute's behavior.
-
-Without attribute helpers:
-
-@examples[#:eval ev #:label #f
-`(button ((data-on:click__debounce.500ms "@post('/search')")
-          (data-class:active "$enabled")
-          (data-show "$query != ''")))
-]
-
-With attribute helpers:
-
-@examples[#:eval ev #:label #f
-`(button (,(data-on "click" (post "/search") #:debounce "500ms")
-          ,(data-class 'active "$enabled")
-          ,(data-show "$query != ''")))
-]
-
-Modifiers (debounce, throttle, once, etc.) are expressed as keyword arguments rather than method chaining. Boolean modifiers take @racket[#t]; parameterized modifiers take their value directly.
 
 @defthing[case-style/c flat-contract?]{
 Contract for Datastar case-modifier values: @racket[(or/c 'camel 'kebab 'snake 'pascal)].
@@ -471,7 +472,9 @@ Generates a @link["https://data-star.dev/reference/attributes#data-text"]{@tt{da
 }
 
 
-@subsection{Pro Attributes}
+@subsection[#:tag "pro-attributes"]{Pro Attributes}
+
+Use Datastar Pro attribute helpers when your project depends on Pro-only client features.
 
 @defproc[(data-animate [expression string?]) list?]{
 Generates a @link["https://data-star.dev/reference/attributes#data-animate"]{@tt{data-animate}} attribute for Datastar Pro animations.
@@ -592,7 +595,9 @@ Convenience functions for generating Datastar @link["https://data-star.dev/refer
                      "Delete")))
 ]
 
-@subsection{Signal Actions}
+@subsection[#:tag "signal-actions"]{Signal Actions}
+
+Compose action strings that read or update client-side signals.
 
 @defproc[(peek [callable string?]) string?]{
 Returns a @link["https://data-star.dev/reference/actions#peek"]{@tt{@"@"peek}} action string, which allows accessing signals without subscribing to changes.
@@ -625,9 +630,11 @@ Returns a @link["https://data-star.dev/reference/actions#toggleall"]{@tt{@"@"tog
 ]
 }
 
-@subsection{Backend Actions}
+@subsection[#:tag "backend-actions"]{Backend Actions}
 
-Backend actions send HTTP requests and handle SSE responses. Signals transmit by default.
+Send backend requests from the browser and receive Datastar responses. Signals transmit by default.
+
+Handle incoming payloads with @seclink["requests"]{HTTP Requests}, and return updates with @seclink["sse"]{HTTP SSE} or @seclink["one-shot-responses"]{HTTP One-Shot Responses}. For SSE handlers, configure @racket[serve] using @seclink["server-setup"]{HTTP Server Setup}.
 
 All keyword options are pass-through: explicitly provided values are serialized into the action string, including explicit default-equivalent values.
 
@@ -693,7 +700,7 @@ The @racket[#:payload] keyword accepts a raw JavaScript expression string. The @
                [#:retry-max-count retry-max-count exact-nonnegative-integer?]
                [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
           string?]{
-Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#post"]{@tt{@"@"post}} action string that sends a POST request.
+Like @racket[get], but returns a @link["https://data-star.dev/reference/actions#post"]{Datastar @tt{@"@"post} action} string that sends a POST request. See @link["https://data-star.dev/reference/actions#get"]{Datastar @tt{@"@"get} action} for shared options.
 
 @examples[#:eval ev #:label #f
 (post "/submit" #:content-type 'form #:selector "#myForm")
@@ -715,7 +722,7 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
               [#:retry-max-count retry-max-count exact-nonnegative-integer?]
               [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
          string?]{
-Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#put"]{@tt{@"@"put}} action string that sends a PUT request.
+Like @racket[get], but returns a @link["https://data-star.dev/reference/actions#put"]{Datastar @tt{@"@"put} action} string that sends a PUT request. See @link["https://data-star.dev/reference/actions#get"]{Datastar @tt{@"@"get} action} for shared options.
 }
 
 @defproc[(patch [url string?]
@@ -733,7 +740,7 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
                 [#:retry-max-count retry-max-count exact-nonnegative-integer?]
                 [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
            string?]{
-Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#patch"]{@tt{@"@"patch}} action string that sends a PATCH request.
+Like @racket[get], but returns a @link["https://data-star.dev/reference/actions#patch"]{Datastar @tt{@"@"patch} action} string that sends a PATCH request. See @link["https://data-star.dev/reference/actions#get"]{Datastar @tt{@"@"get} action} for shared options.
 }
 
 @defproc[(delete [url string?]
@@ -751,12 +758,12 @@ Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but ret
                  [#:retry-max-count retry-max-count exact-nonnegative-integer?]
                  [#:request-cancellation request-cancellation (or/c 'auto 'cleanup 'disabled string?)])
             string?]{
-Like @link["https://data-star.dev/reference/actions#get"]{@racket[get]}, but returns a @link["https://data-star.dev/reference/actions#delete"]{@tt{@"@"delete}} action string that sends a DELETE request.
+Like @racket[get], but returns a @link["https://data-star.dev/reference/actions#delete"]{Datastar @tt{@"@"delete} action} string that sends a DELETE request. See @link["https://data-star.dev/reference/actions#get"]{Datastar @tt{@"@"get} action} for shared options.
 }
 
-@subsection{Pro Actions}
+@subsection[#:tag "pro-actions"]{Pro Actions}
 
-@link["https://data-star.dev/reference/actions#pro-actions"]{Pro actions} provide additional utilities for clipboard, interpolation, and internationalization.
+Use @link["https://data-star.dev/reference/actions#pro-actions"]{Datastar Pro actions} for clipboard, interpolation, and internationalization helpers.
 
 @defproc[(clipboard [text string?]
                         [#:base64? base64? boolean?]) string?]{
@@ -799,7 +806,9 @@ Returns a @link["https://data-star.dev/reference/actions#intl"]{@tt{@"@"intl}} a
 ]
 }
 
-@subsection{Chaining Actions}
+@subsection[#:tag "chaining-actions"]{Chaining Actions}
+
+Compose larger action expressions by joining smaller action strings.
 
 @defproc[(chain [first string?] [rest string?] ...) string?]{
 Joins parts with @racket["; "] in order.
