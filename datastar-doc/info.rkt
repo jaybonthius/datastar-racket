@@ -3,7 +3,7 @@
 
 (define collection "datastar")
 
-(define scribblings '(("scribblings/datastar.scrbl")))
+(define scribblings '(("scribblings/datastar.scrbl" (multi-page))))
 
 (define deps '("base"))
 

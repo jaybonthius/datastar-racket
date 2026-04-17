@@ -104,9 +104,9 @@
       (patch-elements sse
                       "<p>content</p>"
                       #:selector "#target"
-                      #:mode patch-mode-inner
-                      #:namespace element-namespace-svg
-                      #:use-view-transitions #t
+                      #:mode 'inner
+                      #:namespace 'svg
+                      #:use-view-transitions? #t
                       #:event-id "e1"
                       #:retry-duration 3000)
       (define evt (first (get-events)))
@@ -119,6 +119,18 @@
       (check-not-false (member "useViewTransition true" (sse-event-data-lines evt)))
       (check-not-false (member "elements <p>content</p>" (sse-event-data-lines evt))))
 
+    (test-case "make-recording-sse: explicit default patch-elements datalines are omitted"
+      (define-values (sse get-events) (make-recording-sse))
+      (patch-elements sse
+                      "<p>content</p>"
+                      #:mode 'outer
+                      #:namespace 'html
+                      #:use-view-transitions? #f)
+      (define evt (first (get-events)))
+      (check-false (member "mode outer" (sse-event-data-lines evt)))
+      (check-false (member "namespace html" (sse-event-data-lines evt)))
+      (check-false (member "useViewTransition false" (sse-event-data-lines evt))))
+
     (test-case "make-recording-sse: close-sse prevents further sends"
       (define-values (sse get-events) (make-recording-sse))
       (patch-elements sse "<div>before</div>")
@@ -128,9 +140,15 @@
 
     (test-case "make-recording-sse: only-if-missing signal"
       (define-values (sse get-events) (make-recording-sse))
-      (patch-signals sse "{\"x\":1}" #:only-if-missing #t)
+      (patch-signals sse "{\"x\":1}" #:only-if-missing? #t)
       (define evt (first (get-events)))
       (check-not-false (member "onlyIfMissing true" (sse-event-data-lines evt))))
+
+    (test-case "make-recording-sse: default only-if-missing dataline omitted"
+      (define-values (sse get-events) (make-recording-sse))
+      (patch-signals sse "{\"x\":1}" #:only-if-missing? #f)
+      (define evt (first (get-events)))
+      (check-false (member "onlyIfMissing false" (sse-event-data-lines evt))))
 
     ;; parse-sse-events edge cases ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
