@@ -107,6 +107,7 @@
                       #:mode 'inner
                       #:namespace 'svg
                       #:use-view-transitions? #t
+                      #:view-transition-selector "#main"
                       #:event-id "e1"
                       #:retry-duration 3000)
       (define evt (first (get-events)))
@@ -117,6 +118,7 @@
       (check-not-false (member "selector #target" (sse-event-data-lines evt)))
       (check-not-false (member "namespace svg" (sse-event-data-lines evt)))
       (check-not-false (member "useViewTransition true" (sse-event-data-lines evt)))
+      (check-not-false (member "viewTransitionSelector #main" (sse-event-data-lines evt)))
       (check-not-false (member "elements <p>content</p>" (sse-event-data-lines evt))))
 
     (test-case "make-recording-sse: explicit default patch-elements datalines are omitted"
@@ -125,11 +127,13 @@
                       "<p>content</p>"
                       #:mode 'outer
                       #:namespace 'html
-                      #:use-view-transitions? #f)
+                      #:use-view-transitions? #f
+                      #:view-transition-selector "#main")
       (define evt (first (get-events)))
       (check-false (member "mode outer" (sse-event-data-lines evt)))
       (check-false (member "namespace html" (sse-event-data-lines evt)))
-      (check-false (member "useViewTransition false" (sse-event-data-lines evt))))
+      (check-false (member "useViewTransition false" (sse-event-data-lines evt)))
+      (check-false (member "viewTransitionSelector #main" (sse-event-data-lines evt))))
 
     (test-case "make-recording-sse: close-sse prevents further sends"
       (define-values (sse get-events) (make-recording-sse))

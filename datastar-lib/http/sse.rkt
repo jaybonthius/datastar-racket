@@ -20,54 +20,56 @@
 (provide element-patch-mode/c
          element-namespace/c
          (contract-out
-          [datastar-sse (->* [(-> sse? any)] [#:on-close (-> sse? any)] response?)]
-          [close-sse (-> sse? void?)]
-          [sse-closed? (-> sse? boolean?)]
-          [sse? (-> any/c boolean?)]
-          [call-with-sse-lock (-> sse? (-> any) any)]
-          [patch-elements
-           (->* [sse? (or/c string? #f)]
-                [#:selector string?
-                 #:mode element-patch-mode/c
-                 #:namespace element-namespace/c
-                 #:use-view-transitions? boolean?
-                 #:event-id string?
-                 #:retry-duration exact-positive-integer?]
-                void?)]
-          [patch-elements/xexprs
-           (->* [sse? (or/c xexpr/c (listof xexpr/c))]
-                [#:selector string?
-                 #:mode element-patch-mode/c
-                 #:namespace element-namespace/c
-                 #:use-view-transitions? boolean?
-                 #:event-id string?
-                 #:retry-duration exact-positive-integer?]
-                void?)]
-          [remove-elements
-           (->* [sse? string?]
-                [#:event-id string? #:retry-duration exact-positive-integer?]
-                void?)]
-          [patch-signals
-           (->* [sse? (or/c string? jsexpr?)]
-                [#:event-id string?
-                 #:only-if-missing? boolean?
-                 #:retry-duration exact-positive-integer?]
-                void?)]
-          [remove-signals
-           (->* [sse? (or/c string? (listof string?))]
-                [#:event-id string? #:retry-duration exact-positive-integer?]
-                void?)]
-          [execute-script
-           (->* [sse? string?]
-                [#:auto-remove? boolean?
-                 #:attributes (or/c (hash/c symbol? any/c) (listof string?))
-                 #:event-id string?
-                 #:retry-duration exact-positive-integer?]
-                void?)]
-          [redirect (-> sse? string? void?)]
-          [replace-url (-> sse? string? void?)]
-          [console-log (-> sse? string? void?)]
-          [console-error (-> sse? string? void?)])
+           [datastar-sse (->* [(-> sse? any)] [#:on-close (-> sse? any)] response?)]
+           [close-sse (-> sse? void?)]
+           [sse-closed? (-> sse? boolean?)]
+           [sse? (-> any/c boolean?)]
+           [call-with-sse-lock (-> sse? (-> any) any)]
+           [patch-elements
+            (->* [sse? (or/c string? #f)]
+                 [#:selector string?
+                  #:mode element-patch-mode/c
+                  #:namespace element-namespace/c
+                  #:use-view-transitions? boolean?
+                  #:view-transition-selector string?
+                  #:event-id string?
+                  #:retry-duration exact-positive-integer?]
+                 void?)]
+           [patch-elements/xexprs
+            (->* [sse? (or/c xexpr/c (listof xexpr/c))]
+                 [#:selector string?
+                  #:mode element-patch-mode/c
+                  #:namespace element-namespace/c
+                  #:use-view-transitions? boolean?
+                  #:view-transition-selector string?
+                  #:event-id string?
+                  #:retry-duration exact-positive-integer?]
+                 void?)]
+           [remove-elements
+            (->* [sse? string?]
+                 [#:event-id string? #:retry-duration exact-positive-integer?]
+                 void?)]
+           [patch-signals
+            (->* [sse? (or/c string? jsexpr?)]
+                 [#:event-id string?
+                  #:only-if-missing? boolean?
+                  #:retry-duration exact-positive-integer?]
+                 void?)]
+           [remove-signals
+            (->* [sse? (or/c string? (listof string?))]
+                 [#:event-id string? #:retry-duration exact-positive-integer?]
+                 void?)]
+           [execute-script
+            (->* [sse? string?]
+                 [#:auto-remove? boolean?
+                  #:attributes (or/c (hash/c symbol? any/c) (listof string?))
+                  #:event-id string?
+                  #:retry-duration exact-positive-integer?]
+                 void?)]
+           [redirect (-> sse? string? void?)]
+           [replace-url (-> sse? string? void?)]
+           [console-log (-> sse? string? void?)]
+           [console-error (-> sse? string? void?)])
          with-sse-lock
          datastar-tcp@)
 
@@ -81,30 +83,37 @@
                               #:mode [mode #f]
                               #:namespace [namespace #f]
                               #:use-view-transitions? [use-view-transitions? #f]
+                              #:view-transition-selector [view-transition-selector #f]
                               #:event-id [event-id #f]
                               #:retry-duration [retry-duration #f])
   (define data-lines
     (append
-     (filter
-      values
-      (list (and mode
-                 (not (eq? mode default-element-patch-mode))
-                 (string-append (symbol->string mode-dataline-literal) " " (symbol->string mode)))
-            (and selector (string-append (symbol->string selector-dataline-literal) " " selector))
-            (and namespace
-                 (not (eq? namespace default-element-namespace))
-                 (string-append (symbol->string namespace-dataline-literal)
-                                " "
-                                (symbol->string namespace)))
-            (and use-view-transitions?
-                 (not (eq? use-view-transitions? default-elements-use-view-transitions))
-                 (string-append (symbol->string use-view-transition-dataline-literal)
-                                " "
-                                (js-bool use-view-transitions?)))))
-     (if elements
-         (map (lambda (line) (string-append (symbol->string elements-dataline-literal) " " line))
-              (string-split elements "\n"))
-         '())))
+      (filter
+        values
+        (list (and mode
+                   (not (eq? mode default-element-patch-mode))
+                   (string-append (symbol->string mode-dataline-literal) " " (symbol->string mode)))
+              (and selector (string-append (symbol->string selector-dataline-literal) " " selector))
+              (and use-view-transitions?
+                   (not (eq? use-view-transitions? default-elements-use-view-transitions))
+                   (string-append (symbol->string use-view-transition-dataline-literal)
+                                  " "
+                                  (js-bool use-view-transitions?)))
+              (and use-view-transitions?
+                   view-transition-selector
+                   (not (string=? view-transition-selector ""))
+                   (string-append (symbol->string view-transition-selector-dataline-literal)
+                                  " "
+                                  view-transition-selector))
+              (and namespace
+                   (not (eq? namespace default-element-namespace))
+                   (string-append (symbol->string namespace-dataline-literal)
+                                  " "
+                                  (symbol->string namespace)))))
+      (if elements
+          (map (lambda (line) (string-append (symbol->string elements-dataline-literal) " " line))
+               (string-split elements "\n"))
+          '())))
 
   (send-event event-type-patch-elements
               data-lines
@@ -209,24 +218,24 @@
 (define current-datastar-input-port (make-parameter #f))
 
 (define-unit datastar-tcp@
-             (import)
-             (export tcp^)
-             (define tcp-listen racket:tcp-listen)
-             (define tcp-listener? racket:tcp-listener?)
-             (define tcp-close racket:tcp-close)
-             (define tcp-connect racket:tcp-connect)
-             (define tcp-connect/enable-break racket:tcp-connect/enable-break)
-             (define tcp-accept-ready? racket:tcp-accept-ready?)
-             (define tcp-addresses racket:tcp-addresses)
-             (define tcp-abandon-port racket:tcp-abandon-port)
-             (define (tcp-accept listener)
-               (define-values (ip op) (racket:tcp-accept listener))
-               (current-datastar-input-port ip)
-               (values ip op))
-             (define (tcp-accept/enable-break listener)
-               (define-values (ip op) (racket:tcp-accept/enable-break listener))
-               (current-datastar-input-port ip)
-               (values ip op)))
+  (import)
+  (export tcp^)
+  (define tcp-listen racket:tcp-listen)
+  (define tcp-listener? racket:tcp-listener?)
+  (define tcp-close racket:tcp-close)
+  (define tcp-connect racket:tcp-connect)
+  (define tcp-connect/enable-break racket:tcp-connect/enable-break)
+  (define tcp-accept-ready? racket:tcp-accept-ready?)
+  (define tcp-addresses racket:tcp-addresses)
+  (define tcp-abandon-port racket:tcp-abandon-port)
+  (define (tcp-accept listener)
+    (define-values (ip op) (racket:tcp-accept listener))
+    (current-datastar-input-port ip)
+    (values ip op))
+  (define (tcp-accept/enable-break listener)
+    (define-values (ip op) (racket:tcp-accept/enable-break listener))
+    (current-datastar-input-port ip)
+    (values ip op)))
 
 (define (close-sse sse)
   (set-box! (sse-closed-box sse) #t))
@@ -274,6 +283,7 @@
                         #:mode [mode #f]
                         #:namespace [namespace #f]
                         #:use-view-transitions? [use-view-transitions? #f]
+                        #:view-transition-selector [view-transition-selector #f]
                         #:event-id [event-id #f]
                         #:retry-duration [retry-duration #f])
   (sse-send sse
@@ -282,6 +292,7 @@
                                   #:mode mode
                                   #:namespace namespace
                                   #:use-view-transitions? use-view-transitions?
+                                  #:view-transition-selector view-transition-selector
                                   #:event-id event-id
                                   #:retry-duration retry-duration)))
 
@@ -299,6 +310,7 @@
                                #:mode [mode #f]
                                #:namespace [namespace #f]
                                #:use-view-transitions? [use-view-transitions? #f]
+                               #:view-transition-selector [view-transition-selector #f]
                                #:event-id [event-id #f]
                                #:retry-duration [retry-duration #f])
   (patch-elements sse
@@ -307,6 +319,7 @@
                   #:mode mode
                   #:namespace namespace
                   #:use-view-transitions? use-view-transitions?
+                  #:view-transition-selector view-transition-selector
                   #:event-id event-id
                   #:retry-duration retry-duration))
 

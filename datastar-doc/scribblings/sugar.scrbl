@@ -34,7 +34,7 @@ With sugar:
 ]
 
 @defthing[datastar-version string?]{
-The Datastar version string (e.g., @racket["v1.0.0"]).
+The Datastar version string (e.g., @racket["v1.0.2"]).
 }
 
 @defthing[datastar-cdn-url string?]{

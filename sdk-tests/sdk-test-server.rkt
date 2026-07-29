@@ -37,6 +37,8 @@
     (hash-set! kw '#:namespace (string->namespace (hash-ref event 'namespace))))
   (when (hash-has-key? event 'useViewTransition)
     (hash-set! kw '#:use-view-transitions? (hash-ref event 'useViewTransition)))
+  (when (hash-has-key? event 'viewTransitionSelector)
+    (hash-set! kw '#:view-transition-selector (hash-ref event 'viewTransitionSelector)))
   (when (hash-has-key? event 'eventId)
     (hash-set! kw '#:event-id (hash-ref event 'eventId)))
   (when (hash-has-key? event 'retryDuration)
@@ -126,3 +128,21 @@
                  #:servlet-regexp #rx""
                  #:launch-browser? #f
                  #:stateless? #t))
+
+(module+ test
+  (require (only-in datastar/private/sse make-test-sse get-test-output)
+           racket/string
+           rackunit)
+
+  (test-case "patchElements maps viewTransitionSelector"
+    (define-values (sse out) (make-test-sse))
+    (handle-patch-elements sse
+                           (hash 'elements
+                                 "<main id=\"main\">updated</main>"
+                                 'useViewTransition
+                                 #t
+                                 'viewTransitionSelector
+                                 "#main"))
+    (define result (get-test-output out))
+    (check-true (string-contains? result "data: useViewTransition true\n"))
+    (check-true (string-contains? result "data: viewTransitionSelector #main\n"))))

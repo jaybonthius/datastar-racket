@@ -9,7 +9,7 @@
          datastar-cdn-url
          datastar-cdn-map-url)
 
-(define datastar-version "v1.0.0")
+(define datastar-version "v1.0.2")
 
 (define datastar-cdn-url
   (string-append "https://cdn.jsdelivr.net/gh/starfederation/datastar@"

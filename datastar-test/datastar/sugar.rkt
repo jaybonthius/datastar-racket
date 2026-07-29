@@ -53,8 +53,8 @@
 
     (test-case "filter-signals include and exclude"
       (check-equal?
-       (post "/submit" #:filter-signals-include "/^foo\\./" #:filter-signals-exclude "/^_/")
-       "@post('/submit', {filterSignals: {include: /^foo\\./, exclude: /^_/}})"))
+        (post "/submit" #:filter-signals-include "/^foo\\./" #:filter-signals-exclude "/^_/")
+        "@post('/submit', {filterSignals: {include: /^foo\\./, exclude: /^_/}})"))
 
     ;; selector ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -482,31 +482,31 @@
 
     (test-case "data-bind supports __prop and __event modifiers"
       (check-equal?
-       (data-bind "is-checked" #:prop "checked" #:event "change")
-       (list (string->symbol "data-bind:is-checked__prop.checked__event.change") ""))
+        (data-bind "is-checked" #:prop "checked" #:event "change")
+        (list (string->symbol "data-bind:is-checked__prop.checked__event.change") ""))
       (check-equal?
-       (xexpr->string `(my-toggle (,(data-bind "is-checked" #:prop "checked" #:event "change"))))
-       "<my-toggle data-bind:is-checked__prop.checked__event.change=\"\"></my-toggle>"))
+        (xexpr->string `(my-toggle (,(data-bind "is-checked" #:prop "checked" #:event "change"))))
+        "<my-toggle data-bind:is-checked__prop.checked__event.change=\"\"></my-toggle>"))
 
     (test-case "data-bind supports __event with multiple events"
       (check-equal?
-       (data-bind "query" #:prop 'value #:event '("input" "change"))
-       (list (string->symbol "data-bind:query__prop.value__event.input.change") "")))
+        (data-bind "query" #:prop 'value #:event '("input" "change"))
+        (list (string->symbol "data-bind:query__prop.value__event.input.change") "")))
 
     (test-case "data-bind modifier ordering is deterministic"
       (check-equal?
-       (data-bind "query" #:event '("input" "change") #:case 'snake #:prop "value")
-       (list (string->symbol "data-bind:query__case.snake__prop.value__event.input.change") "")))
+        (data-bind "query" #:event '("input" "change") #:case 'snake #:prop "value")
+        (list (string->symbol "data-bind:query__case.snake__prop.value__event.input.change") "")))
 
     (test-case "data-bind allows __prop without __event"
       (check-equal?
-       (data-bind "is-checked" #:prop "checked")
-       (list (string->symbol "data-bind:is-checked__prop.checked") "")))
+        (data-bind "is-checked" #:prop "checked")
+        (list (string->symbol "data-bind:is-checked__prop.checked") "")))
 
     (test-case "data-bind allows __event without __prop"
       (check-equal?
-       (data-bind "query" #:event "input")
-       (list (string->symbol "data-bind:query__event.input") "")))
+        (data-bind "query" #:event "input")
+        (list (string->symbol "data-bind:query__event.input") "")))
 
     (test-case "data-bind with positional value no longer supported"
       (check-exn exn:fail? (lambda () (data-bind "foo" "fooBar"))))
@@ -563,8 +563,8 @@
       (check-equal? (data-custom-validity "$foo === $bar ? '' : 'Values must match'")
                     '(data-custom-validity "$foo === $bar ? '' : 'Values must match'"))
       (check-equal?
-       (xexpr->string `(input (,(data-custom-validity "$foo === $bar ? '' : 'Values must match'"))))
-       "<input data-custom-validity=\"$foo === $bar ? '' : 'Values must match'\"/>"))
+        (xexpr->string `(input (,(data-custom-validity "$foo === $bar ? '' : 'Values must match'"))))
+        "<input data-custom-validity=\"$foo === $bar ? '' : 'Values must match'\"/>"))
 
     (test-case "data-replace-url basic"
       (check-equal? (data-replace-url "`/page${page}`") '(data-replace-url "`/page${page}`"))
@@ -578,8 +578,8 @@
       (check-equal? (data-match-media "is-dark" "'prefers-color-scheme: dark'")
                     (list 'data-match-media:is-dark "'prefers-color-scheme: dark'"))
       (check-equal?
-       (xexpr->string `(div (,(data-match-media "is-dark" "'prefers-color-scheme: dark'")) ""))
-       "<div data-match-media:is-dark=\"'prefers-color-scheme: dark'\"></div>"))
+        (xexpr->string `(div (,(data-match-media "is-dark" "'prefers-color-scheme: dark'")) ""))
+        "<div data-match-media:is-dark=\"'prefers-color-scheme: dark'\"></div>"))
 
     (test-case "data-match-media with symbol"
       (check-equal? (data-match-media 'is-dark "'prefers-color-scheme: dark'")
@@ -745,8 +745,8 @@
       (check-equal? (first result) 'data-style)
       (check-true (string-contains? (second result) "\"display\": $hiding ? 'none' : 'flex'"))
       (check-equal?
-       (xexpr->string `(div (,(data-style/hash (hash "display" "$visible ? 'block' : 'none'"))) ""))
-       "<div data-style=\"{&quot;display&quot;: $visible ? 'block' : 'none'}\"></div>"))
+        (xexpr->string `(div (,(data-style/hash (hash "display" "$visible ? 'block' : 'none'"))) ""))
+        "<div data-style=\"{&quot;display&quot;: $visible ? 'block' : 'none'}\"></div>"))
 
     ;; data-on -- basic ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -794,8 +794,8 @@
       (check-equal? (data-on "selectionchange" "fn()" #:document? #t)
                     (list 'data-on:selectionchange__document "fn()"))
       (check-equal?
-       (xexpr->string `(div (,(data-on "selectionchange" "fn()" #:document? #t)) ""))
-       "<div data-on:selectionchange__document=\"fn()\"></div>"))
+        (xexpr->string `(div (,(data-on "selectionchange" "fn()" #:document? #t)) ""))
+        "<div data-on:selectionchange__document=\"fn()\"></div>"))
 
     (test-case "data-on with outside"
       (check-equal? (data-on "click" "fn()" #:outside? #t) (list 'data-on:click__outside "fn()")))
@@ -824,9 +824,9 @@
       (check-equal? (data-on "click" "fn()" #:debounce "500ms" #:debounce-leading? #t)
                     (list (string->symbol "data-on:click__debounce.500ms.leading") "fn()"))
       (check-equal?
-       (xexpr->string `(button (,(data-on "click" "fn()" #:debounce "500ms" #:debounce-leading? #t))
-                               "Go"))
-       "<button data-on:click__debounce.500ms.leading=\"fn()\">Go</button>"))
+        (xexpr->string `(button (,(data-on "click" "fn()" #:debounce "500ms" #:debounce-leading? #t))
+                                "Go"))
+        "<button data-on:click__debounce.500ms.leading=\"fn()\">Go</button>"))
 
     (test-case "data-on with debounce notrailing"
       (check-equal? (data-on "click" "fn()" #:debounce "500ms" #:debounce-notrailing? #t)
@@ -834,8 +834,8 @@
 
     (test-case "data-on with debounce leading and notrailing"
       (check-equal?
-       (data-on "click" "fn()" #:debounce "500ms" #:debounce-leading? #t #:debounce-notrailing? #t)
-       (list (string->symbol "data-on:click__debounce.500ms.leading.notrailing") "fn()")))
+        (data-on "click" "fn()" #:debounce "500ms" #:debounce-leading? #t #:debounce-notrailing? #t)
+        (list (string->symbol "data-on:click__debounce.500ms.leading.notrailing") "fn()")))
 
     (test-case "data-on with throttle string"
       (check-equal? (data-on "scroll" "fn()" #:throttle "1s")
@@ -879,23 +879,23 @@
 
     (test-case "data-on with window + debounce + leading (matches Datastar docs example)"
       (check-equal?
-       (data-on "click" "$foo = ''" #:window? #t #:debounce "500ms" #:debounce-leading? #t)
-       (list (string->symbol "data-on:click__window__debounce.500ms.leading") "$foo = ''"))
+        (data-on "click" "$foo = ''" #:window? #t #:debounce "500ms" #:debounce-leading? #t)
+        (list (string->symbol "data-on:click__window__debounce.500ms.leading") "$foo = ''"))
       (check-equal?
-       (xexpr->string
-        `(button
-          (,(data-on "click" "$foo = ''" #:window? #t #:debounce "500ms" #:debounce-leading? #t))
-          ""))
-       "<button data-on:click__window__debounce.500ms.leading=\"$foo = ''\"></button>"))
+        (xexpr->string
+          `(button
+             (,(data-on "click" "$foo = ''" #:window? #t #:debounce "500ms" #:debounce-leading? #t))
+             ""))
+        "<button data-on:click__window__debounce.500ms.leading=\"$foo = ''\"></button>"))
 
     (test-case "data-on with debounce + stop + prevent"
       (check-equal? (data-on "input" "@post('/search')" #:debounce "300ms" #:prevent? #t #:stop? #t)
                     (list (string->symbol "data-on:input__prevent__stop__debounce.300ms")
                           "@post('/search')"))
       (check-equal?
-       (xexpr->string
-        `(input (,(data-on "input" "@post('/search')" #:debounce "300ms" #:prevent? #t #:stop? #t))))
-       "<input data-on:input__prevent__stop__debounce.300ms=\"@post('/search')\"/>"))
+        (xexpr->string
+          `(input (,(data-on "input" "@post('/search')" #:debounce "300ms" #:prevent? #t #:stop? #t))))
+        "<input data-on:input__prevent__stop__debounce.300ms=\"@post('/search')\"/>"))
 
     (test-case "data-on with all boolean modifiers"
       (define result
@@ -973,9 +973,9 @@
       (check-equal? (data-on-intersect "$fullyIntersected = true" #:once? #t #:full? #t)
                     '(data-on-intersect__once__full "$fullyIntersected = true"))
       (check-equal?
-       (xexpr->string `(div (,(data-on-intersect "$fullyIntersected = true" #:once? #t #:full? #t))
-                            ""))
-       "<div data-on-intersect__once__full=\"$fullyIntersected = true\"></div>"))
+        (xexpr->string `(div (,(data-on-intersect "$fullyIntersected = true" #:once? #t #:full? #t))
+                             ""))
+        "<div data-on-intersect__once__full=\"$fullyIntersected = true\"></div>"))
 
     (test-case "data-on-intersect with debounce"
       (check-equal? (data-on-intersect "fn()" #:debounce "500ms")
@@ -1027,9 +1027,9 @@
       (check-equal? (data-on-interval "$count++" #:duration "500ms" #:duration-leading? #t)
                     (list (string->symbol "data-on-interval__duration.500ms.leading") "$count++"))
       (check-equal?
-       (xexpr->string `(div (,(data-on-interval "$count++" #:duration "500ms" #:duration-leading? #t))
-                            ""))
-       "<div data-on-interval__duration.500ms.leading=\"$count++\"></div>"))
+        (xexpr->string `(div (,(data-on-interval "$count++" #:duration "500ms" #:duration-leading? #t))
+                             ""))
+        "<div data-on-interval__duration.500ms.leading=\"$count++\"></div>"))
 
     (test-case "data-on-interval with viewtransition"
       (check-equal? (data-on-interval "fn()" #:viewtransition? #t)
@@ -1072,8 +1072,8 @@
       (check-equal? (first (first attrs)) 'data-on-signal-patch)
       (check-equal? (first (second attrs)) 'data-on-signal-patch-filter)
       (check-equal?
-       (xexpr->string `(div ,attrs ""))
-       "<div data-on-signal-patch=\"fn()\" data-on-signal-patch-filter=\"{&quot;include&quot;: &quot;counter&quot;}\"></div>"))
+        (xexpr->string `(div ,attrs ""))
+        "<div data-on-signal-patch=\"fn()\" data-on-signal-patch-filter=\"{&quot;include&quot;: &quot;counter&quot;}\"></div>"))
 
     (test-case "data-on-signal-patch rejects include/exclude keywords"
       (check-exn exn:fail? (lambda () (data-on-signal-patch "fn()" #:include "counter")))
@@ -1222,8 +1222,8 @@
       (check-true (string-contains? (second result) "\"include\""))
       (check-true (string-contains? (second result) "\"exclude\""))
       (check-equal?
-       (xexpr->string `(div (,(data-persist #:include "foo" #:exclude "bar")) ""))
-       "<div data-persist=\"{&quot;include&quot;: &quot;foo&quot;, &quot;exclude&quot;: &quot;bar&quot;}\"></div>"))
+        (xexpr->string `(div (,(data-persist #:include "foo" #:exclude "bar")) ""))
+        "<div data-persist=\"{&quot;include&quot;: &quot;foo&quot;, &quot;exclude&quot;: &quot;bar&quot;}\"></div>"))
 
     ;; data-query-string ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1275,8 +1275,8 @@
       (check-equal? (first result) 'data-json-signals__terse)
       (check-true (string-contains? (second result) "\"include\""))
       (check-equal?
-       (xexpr->string `(pre (,(data-json-signals #:include "counter" #:terse? #t)) ""))
-       "<pre data-json-signals__terse=\"{&quot;include&quot;: &quot;counter&quot;}\"></pre>"))
+        (xexpr->string `(pre (,(data-json-signals #:include "counter" #:terse? #t)) ""))
+        "<pre data-json-signals__terse=\"{&quot;include&quot;: &quot;counter&quot;}\"></pre>"))
 
     ;; data-preserve-attr ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1334,23 +1334,23 @@
 
     (test-case "search input pattern renders correct HTML"
       (check-equal?
-       (xexpr->string `(input (,(data-on "input" (post "/search") #:debounce "250ms")
-                               ,(data-bind "filter")
-                               ,(data-indicator "filtering"))))
-       "<input data-on:input__debounce.250ms=\"@post('/search')\" data-bind:filter=\"\" data-indicator:filtering=\"\"/>"))
+        (xexpr->string `(input (,(data-on "input" (post "/search") #:debounce "250ms")
+                                 ,(data-bind "filter")
+                                 ,(data-indicator "filtering"))))
+        "<input data-on:input__debounce.250ms=\"@post('/search')\" data-bind:filter=\"\" data-indicator:filtering=\"\"/>"))
 
     (test-case "form with post renders correct HTML"
       (check-equal?
-       (xexpr->string `(form (,(data-on "submit" (post "/todo/create") #:prevent? #t))
-                             (input ((type "text") ,(data-bind "newTodo")))
-                             (button ((type "submit")) "Add")))
-       "<form data-on:submit__prevent=\"@post('/todo/create')\"><input type=\"text\" data-bind:newTodo=\"\"/><button type=\"submit\">Add</button></form>"))
+        (xexpr->string `(form (,(data-on "submit" (post "/todo/create") #:prevent? #t))
+                              (input ((type "text") ,(data-bind "newTodo")))
+                              (button ((type "submit")) "Add")))
+        "<form data-on:submit__prevent=\"@post('/todo/create')\"><input type=\"text\" data-bind:newTodo=\"\"/><button type=\"submit\">Add</button></form>"))
 
     (test-case "page with init + signals renders correct HTML"
       (check-equal?
-       (xexpr->string `(body (,(data-init (get "/updates")) ,(data-signals/hash (hash 'count 0)))
-                             (span (,(data-text "$count")) "")))
-       "<body data-init=\"@get('/updates')\" data-signals=\"{&quot;count&quot;:0}\"><span data-text=\"$count\"></span></body>"))
+        (xexpr->string `(body (,(data-init (get "/updates")) ,(data-signals/hash (hash 'count 0)))
+                              (span (,(data-text "$count")) "")))
+        "<body data-init=\"@get('/updates')\" data-signals=\"{&quot;count&quot;:0}\"><span data-text=\"$count\"></span></body>"))
 
     ;; edge cases ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1564,9 +1564,9 @@
                                     (data-on "click" "fn()" #:throttle "10ms" #:throttle-trailing? #t))
                                   (lambda ()
                                     (data-on-intersect
-                                     "fn()"
-                                     #:debounce "10ms"
-                                     #:debounce-notrailing? #t))
+                                      "fn()"
+                                      #:debounce "10ms"
+                                      #:debounce-notrailing? #t))
                                   (lambda ()
                                     (data-on-signal-patch "fn()" #:throttle "10ms" #:throttle-noleading? #t))
                                   (lambda () (data-on-raf "fn()" #:throttle "10ms" #:throttle-trailing? #t))
@@ -1585,14 +1585,14 @@
 (define constants-tests
   (test-suite "constants"
 
-    (test-case "Datastar version is stable v1.0.0"
-      (check-equal? datastar-version "v1.0.0"))
+    (test-case "Datastar version is stable v1.0.2"
+      (check-equal? datastar-version "v1.0.2"))
 
     (test-case "CDN URLs contain version"
       (check-true (string-contains? datastar-cdn-url datastar-version))
       (check-true (string-contains? datastar-cdn-map-url datastar-version))
-      (check-true (string-contains? datastar-cdn-url "@v1.0.0/"))
-      (check-true (string-contains? datastar-cdn-map-url "@v1.0.0/")))
+      (check-true (string-contains? datastar-cdn-url "@v1.0.2/"))
+      (check-true (string-contains? datastar-cdn-map-url "@v1.0.2/")))
 
     (test-case "CDN URLs have correct suffix"
       (check-true (string-suffix? datastar-cdn-url "/bundles/datastar.js"))

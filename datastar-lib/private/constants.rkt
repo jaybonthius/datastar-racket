@@ -12,6 +12,7 @@
          namespace-dataline-literal
          elements-dataline-literal
          use-view-transition-dataline-literal
+         view-transition-selector-dataline-literal
          signals-dataline-literal
          only-if-missing-dataline-literal
          default-elements-use-view-transitions
@@ -35,6 +36,7 @@
 (define namespace-dataline-literal 'namespace)
 (define elements-dataline-literal 'elements)
 (define use-view-transition-dataline-literal 'useViewTransition)
+(define view-transition-selector-dataline-literal 'viewTransitionSelector)
 (define signals-dataline-literal 'signals)
 (define only-if-missing-dataline-literal 'onlyIfMissing)
 

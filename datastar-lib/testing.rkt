@@ -51,8 +51,8 @@
 ;; contracts & provide ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (provide (contract-out (struct sse-event
-                               ([type string?] [id (or/c string? #f)]
-                                               [retry (or/c exact-nonnegative-integer? #f)]
-                                               [data-lines (listof string?)]))
+                         ([type string?] [id (or/c string? #f)]
+                          [retry (or/c exact-nonnegative-integer? #f)]
+                          [data-lines (listof string?)]))
                        [make-mock-sse (-> (values sse? (-> string?)))]
                        [make-recording-sse (-> (values sse? (-> (listof sse-event?))))]))

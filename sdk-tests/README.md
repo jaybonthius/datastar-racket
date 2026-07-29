@@ -1,6 +1,6 @@
 # Datastar SDK Tests for Racket
 
-Tests the Racket Datastar implementation against the official SDK test suite from https://github.com/starfederation/datastar/tree/develop/sdk/tests.
+Tests the Racket Datastar implementation against the official v1.0.2 SDK test suite from https://github.com/starfederation/datastar/tree/v1.0.2/sdk/tests.
 
 ## Files
 
@@ -15,5 +15,5 @@ Tests the Racket Datastar implementation against the official SDK test suite fro
 ## Running the Tests
 
 ```sh
-raco test sdk-tests/sdk-test-runner.rkt
+raco test sdk-tests/
 ```

@@ -288,18 +288,18 @@
 
   (define (handler _req)
     (datastar-sse
-     (lambda (sse)
-       (patch-elements sse "<div id=\"init\">ready</div>")
-       (let loop ()
-         (define msg (async-channel-get notify-ch))
-         (cond
-           [(eq? msg 'stop) (void)]
-           [else
-            (with-sse-lock sse
-                           (patch-elements sse (format "<div id=\"start\">~a-start</div>" msg))
-                           (patch-elements sse (format "<div id=\"end\">~a-end</div>" msg)))
-            (loop)])))
-     #:on-close (lambda (_sse) (set-box! close-called #t))))
+      (lambda (sse)
+        (patch-elements sse "<div id=\"init\">ready</div>")
+        (let loop ()
+          (define msg (async-channel-get notify-ch))
+          (cond
+            [(eq? msg 'stop) (void)]
+            [else
+             (with-sse-lock sse
+                            (patch-elements sse (format "<div id=\"start\">~a-start</div>" msg))
+                            (patch-elements sse (format "<div id=\"end\">~a-end</div>" msg)))
+             (loop)])))
+      #:on-close (lambda (_sse) (set-box! close-called #t))))
 
   (define-values (port stop) (start-test-server! handler))
   (define-values (conn _status _headers in) (open-sse-stream port "/"))

@@ -102,8 +102,8 @@
     (test-case "response/datastar-script with attributes"
       (define resp
         (response/datastar-script
-         "console.log('hi')"
-         #:attributes (hash 'type "module" "nonce" "abc" 'async #t 'defer #f 'priority 5)))
+          "console.log('hi')"
+          #:attributes (hash 'type "module" "nonce" "abc" 'async #t 'defer #f 'priority 5)))
       (define attrs-header (find-header resp "datastar-script-attributes"))
       (check-not-false attrs-header)
       (define attrs-json (string->jsexpr attrs-header))
@@ -148,6 +148,7 @@
                       #:mode 'inner
                       #:namespace 'svg
                       #:use-view-transitions? #t
+                      #:view-transition-selector "#main"
                       #:event-id "evt-1"
                       #:retry-duration 2000)
       (check-equal? (get-test-output out)
@@ -156,8 +157,9 @@
                                    "retry: 2000\n"
                                    "data: mode inner\n"
                                    "data: selector #target\n"
-                                   "data: namespace svg\n"
                                    "data: useViewTransition true\n"
+                                   "data: viewTransitionSelector #main\n"
+                                   "data: namespace svg\n"
                                    "data: elements <div>content</div>\n"
                                    "\n")))
 
@@ -178,6 +180,25 @@
       (patch-elements gen "<div>test</div>" #:use-view-transitions? #f)
       (define result (get-test-output out))
       (check-false (string-contains? result "useViewTransition false")))
+
+    (test-case "viewTransitionSelector requires enabled view transitions and a non-empty selector"
+      (define-values (disabled-sse disabled-out) (make-test-sse))
+      (patch-elements disabled-sse
+                      "<div>test</div>"
+                      #:use-view-transitions? #f
+                      #:view-transition-selector "#main")
+      (check-false (string-contains? (get-test-output disabled-out) "viewTransitionSelector"))
+
+      (define-values (implicit-sse implicit-out) (make-test-sse))
+      (patch-elements implicit-sse "<div>test</div>" #:view-transition-selector "#main")
+      (check-false (string-contains? (get-test-output implicit-out) "viewTransitionSelector"))
+
+      (define-values (empty-sse empty-out) (make-test-sse))
+      (patch-elements empty-sse
+                      "<div>test</div>"
+                      #:use-view-transitions? #t
+                      #:view-transition-selector "")
+      (check-false (string-contains? (get-test-output empty-out) "viewTransitionSelector")))
 
     (test-case "default retry duration 1000 is omitted"
       (define-values (gen out) (make-test-sse))
@@ -225,6 +246,7 @@
                              #:mode 'inner
                              #:namespace 'svg
                              #:use-view-transitions? #t
+                             #:view-transition-selector "#main"
                              #:event-id "evt-1"
                              #:retry-duration 2000)
       (check-equal? (get-test-output out)
@@ -233,8 +255,9 @@
                                    "retry: 2000\n"
                                    "data: mode inner\n"
                                    "data: selector #target\n"
-                                   "data: namespace svg\n"
                                    "data: useViewTransition true\n"
+                                   "data: viewTransitionSelector #main\n"
+                                   "data: namespace svg\n"
                                    "data: elements <div>content</div>\n"
                                    "\n")))
 
@@ -243,8 +266,8 @@
       (patch-elements/xexprs gen '(div ((id "x")) (span "hello") " " (span "world")))
       (define result (get-test-output out))
       (check-true (string-contains?
-                   result
-                   "elements <div id=\"x\"><span>hello</span> <span>world</span></div>")))
+                    result
+                    "elements <div id=\"x\"><span>hello</span> <span>world</span></div>")))
 
     (test-case "patch-elements/xexprs with multiple xexprs"
       (define-values (gen out) (make-test-sse))
@@ -390,6 +413,8 @@
       (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:selector #f)))
       (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:mode #f)))
       (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:namespace #f)))
+      (check-exn exn:fail:contract?
+                 (lambda () (patch-elements gen "<div/>" #:view-transition-selector #f)))
       (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:event-id #f)))
       (check-exn exn:fail:contract? (lambda () (patch-elements gen "<div/>" #:retry-duration #f)))
       (check-exn exn:fail:contract? (lambda () (remove-elements gen "#x" #:event-id #f)))
@@ -475,11 +500,11 @@
         (regexp-match* #rx"data: elements <div>([a-z]+-[0-9])" result #:match-select cadr))
       (define adjacent-pairs
         (for/sum
-         ([i (in-range (sub1 (length data-values)))])
-         (define this (list-ref data-values i))
-         (define next (list-ref data-values (add1 i)))
-         (define num (substring this (sub1 (string-length this))))
-         (if (and (string-prefix? this "start-") (equal? next (string-append "end-" num))) 1 0)))
+          ([i (in-range (sub1 (length data-values)))])
+          (define this (list-ref data-values i))
+          (define next (list-ref data-values (add1 i)))
+          (define num (substring this (sub1 (string-length this))))
+          (if (and (string-prefix? this "start-") (equal? next (string-append "end-" num))) 1 0)))
       (check-true (< adjacent-pairs 5) "without batch lock, some pairs should be interleaved"))
 
     (test-case "with-sse-lock: batch sends are not interleaved by other threads"
@@ -509,10 +534,10 @@
     (test-case "call-with-sse-lock: nested locks do not deadlock"
       (define-values (gen out) (make-test-sse))
       (check-not-exn
-       (lambda ()
-         (call-with-sse-lock
-          gen
-          (lambda () (call-with-sse-lock gen (lambda () (patch-elements gen "<div>nested</div>")))))))
+        (lambda ()
+          (call-with-sse-lock
+            gen
+            (lambda () (call-with-sse-lock gen (lambda () (patch-elements gen "<div>nested</div>")))))))
       (check-true (string-contains? (get-output-string out) "nested")))
 
     (test-case "with-sse-lock: child thread does not inherit lock"

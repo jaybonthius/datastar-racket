@@ -9,14 +9,14 @@
 
 (define build-deps
   '("datastar-lib" "web-server-compress"
-                   "net-doc"
-                   "net-lib"
-                   "rackunit-doc"
-                   "rackunit-lib"
-                   "scribble-lib"
-                   "racket-doc"
-                   "web-server-doc"
-                   "web-server-lib"))
+    "net-doc"
+    "net-lib"
+    "rackunit-doc"
+    "rackunit-lib"
+    "scribble-lib"
+    "racket-doc"
+    "web-server-doc"
+    "web-server-lib"))
 
 (define update-implies '("datastar-lib"))
 

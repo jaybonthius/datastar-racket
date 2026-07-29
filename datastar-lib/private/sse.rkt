@@ -21,10 +21,10 @@
   (if (thread-cell-ref (sse-lock-held? sse))
       (thunk)
       (call-with-semaphore
-       (sse-semaphore sse)
-       (lambda ()
-         (thread-cell-set! (sse-lock-held? sse) #t)
-         (dynamic-wind void thunk (lambda () (thread-cell-set! (sse-lock-held? sse) #f)))))))
+        (sse-semaphore sse)
+        (lambda ()
+          (thread-cell-set! (sse-lock-held? sse) #t)
+          (dynamic-wind void thunk (lambda () (thread-cell-set! (sse-lock-held? sse) #f)))))))
 
 (define (sse-send sse event-str)
   (call-with-sse-lock sse

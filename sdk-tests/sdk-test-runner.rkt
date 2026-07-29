@@ -37,24 +37,25 @@
   (define test-success? #f)
 
   (dynamic-wind
-   (λ ()
-     (unless (wait-for-server-ready SERVER_PORT SERVER_READY_TIMEOUT)
-       (kill-thread server-thread)
-       (error "Test server failed to start within ~a seconds" SERVER_READY_TIMEOUT)))
-   (λ ()
-     (printf "Running SDK tests...~n")
-     (define test-result
-       (system* (find-executable-path "go")
-                "run"
-                "github.com/starfederation/datastar/sdk/tests/cmd/datastar-sdk-tests@latest"))
-     (set! test-success? test-result)
-     (if test-result
-         (printf "✓ SDK tests passed!~n")
-         (printf "✗ SDK tests failed~n")))
-   (λ ()
-     (printf "Shutting down test server...~n")
-     (kill-thread server-thread)
-     (printf "Test server stopped~n")))
+    (λ ()
+      (unless (wait-for-server-ready SERVER_PORT SERVER_READY_TIMEOUT)
+        (kill-thread server-thread)
+        (error "Test server failed to start within ~a seconds" SERVER_READY_TIMEOUT)))
+    (λ ()
+      (printf "Running SDK tests...~n")
+      (define test-result
+        (system*
+          (find-executable-path "go")
+          "run"
+          "github.com/starfederation/datastar/sdk/tests/cmd/datastar-sdk-tests@e24f04d43ca4445d662b4a035e5bfe9ed68de57c"))
+      (set! test-success? test-result)
+      (if test-result
+          (printf "✓ SDK tests passed!~n")
+          (printf "✗ SDK tests failed~n")))
+    (λ ()
+      (printf "Shutting down test server...~n")
+      (kill-thread server-thread)
+      (printf "Test server stopped~n")))
 
   test-success?)
 

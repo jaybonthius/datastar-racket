@@ -9,7 +9,7 @@
 
 (define pkg-desc "Datastar SDK for Racket")
 
-(define version "0.3")
+(define version "0.4")
 
 (define pkg-authors '("Jay Bonthius"))
 

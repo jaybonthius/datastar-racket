@@ -173,18 +173,23 @@ Send element patch events to morph, insert, replace, or remove DOM content.
                           [#:mode mode element-patch-mode/c]
                           [#:namespace namespace element-namespace/c]
                           [#:use-view-transitions? use-view-transitions? boolean? #f]
+                          [#:view-transition-selector view-transition-selector string?]
                           [#:event-id event-id string?]
                           [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Sends a @link["https://data-star.dev/reference/sse_events#datastar-patch-elements"]{@tt{datastar-patch-elements}} SSE event that patches one or more elements in the DOM. By default, Datastar morphs elements by matching top-level elements based on their ID.
 
-The @racket[#:mode] parameter controls how elements are patched. Use symbol values; see @racket[element-patch-mode/c] for allowed values.
+The @racket[#:mode] parameter controls how elements are patched. Use symbol values; see @racket[element-patch-mode/c] for allowed values. When @racket[#:use-view-transitions?] is @racket[#t], @racket[#:view-transition-selector] selects the element on which Datastar starts a scoped view transition.
 
-Serializer behavior omits default-equivalent wire fields: @tt{data: mode ...} is omitted for @racket['outer], @tt{data: namespace ...} is omitted for @racket['html], @tt{data: useViewTransition ...} is omitted for @racket[#f], and @tt{retry: ...} is omitted for the default retry duration.
+Serializer behavior omits default-equivalent wire fields: @tt{data: mode ...} is omitted for @racket['outer], @tt{data: namespace ...} is omitted for @racket['html], @tt{data: useViewTransition ...} is omitted for @racket[#f], @tt{data: viewTransitionSelector ...} is omitted unless view transitions are enabled and a non-empty selector is provided, and @tt{retry: ...} is omitted for the default retry duration.
 
 @racketblock[
 (patch-elements sse "<div id=\"out\">hello</div>")
 (patch-elements sse "<svg>...</svg>" #:namespace 'svg)
 (patch-elements sse "<li>item</li>" #:selector "#list" #:mode 'append)
+(patch-elements sse
+                "<main id=\"main\">updated</main>"
+                #:use-view-transitions? #t
+                #:view-transition-selector "#main")
 ]
 }
 
@@ -194,6 +199,7 @@ Serializer behavior omits default-equivalent wire fields: @tt{data: mode ...} is
                                  [#:mode mode element-patch-mode/c]
                                  [#:namespace namespace element-namespace/c]
                                  [#:use-view-transitions? use-view-transitions? boolean? #f]
+                                 [#:view-transition-selector view-transition-selector string?]
                                  [#:event-id event-id string?]
                                  [#:retry-duration retry-duration exact-positive-integer?]) void?]{
 Like @racket[patch-elements], but accepts either a single x-expression or a list of x-expressions instead of a raw HTML string. Converts each x-expression via @racket[xexpr->string], concatenates resulting HTML fragments, and delegates to @racket[patch-elements]. If an empty list is provided, a @tt{datastar-patch-elements} event is still emitted, but with no @tt{elements} data lines.

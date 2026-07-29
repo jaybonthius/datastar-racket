@@ -10,156 +10,156 @@
 
 (provide case-style/c
          (contract-out
-          [data-show (-> string? (list/c symbol? string?))]
-          [data-text (-> string? (list/c symbol? string?))]
-          [data-effect (-> string? (list/c symbol? string?))]
-          [data-animate (-> string? (list/c symbol? string?))]
-          [data-bind
-           (->* [bind-token/c]
-                [#:case case-style/c #:prop bind-token/c #:event bind-events/c]
-                (list/c symbol? string?))]
-          [data-ref (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
-          [data-indicator
-           (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
-          [data-ignore-morph (-> (list/c symbol? string?))]
-          [data-view-transition (-> string? (list/c symbol? string?))]
-          [data-custom-validity (-> string? (list/c symbol? string?))]
-          [data-replace-url (-> string? (list/c symbol? string?))]
-          [data-match-media (-> (or/c symbol? string?) string? (list/c symbol? string?))]
-          [data-signals
-           (->* [(or/c symbol? string?) string?]
-                [#:ifmissing? boolean? #:case case-style/c]
-                (list/c symbol? string?))]
-          [data-signals/hash
-           (->* [(hash/c (or/c symbol? string?) any/c)]
-                [#:ifmissing? boolean?]
-                (list/c symbol? string?))]
-          [data-computed
-           (->* [(or/c symbol? string?) string?]
-                [#:case case-style/c]
-                (list/c symbol? string?))]
-          [data-computed/hash (-> (hash/c (or/c symbol? string?) string?) (list/c symbol? string?))]
-          [data-attr (-> (or/c symbol? string?) string? (list/c symbol? string?))]
-          [data-attr/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
-          [data-class
-           (->* [(or/c symbol? string?) string?]
-                [#:case case-style/c]
-                (list/c symbol? string?))]
-          [data-class/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
-          [data-style (-> (or/c symbol? string?) string? (list/c symbol? string?))]
-          [data-style/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
-          [data-on
-           (->* [(or/c symbol? string?) string?]
-                [#:once? boolean?
-                 #:passive? boolean?
-                 #:capture? boolean?
-                 #:case case-style/c
-                 #:window? boolean?
-                 #:document? boolean?
-                 #:outside? boolean?
-                 #:prevent? boolean?
-                 #:stop? boolean?
-                 #:debounce (or/c string? number?)
-                 #:debounce-leading? boolean?
-                 #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number?)
-                 #:throttle-noleading? boolean?
-                 #:throttle-trailing? boolean?
-                 #:delay (or/c string? number?)
-                 #:viewtransition? boolean?]
-                (list/c symbol? string?))]
-          [data-init
-           (->* [string?]
-                [#:delay (or/c string? number?) #:viewtransition? boolean?]
-                (list/c symbol? string?))]
-          [data-on-intersect
-           (->* [string?]
-                [#:once? boolean?
-                 #:half? boolean?
-                 #:full? boolean?
-                 #:exit? boolean?
-                 #:threshold (or/c string? number?)
-                 #:debounce (or/c string? number?)
-                 #:debounce-leading? boolean?
-                 #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number?)
-                 #:throttle-noleading? boolean?
-                 #:throttle-trailing? boolean?
-                 #:delay (or/c string? number?)
-                 #:viewtransition? boolean?]
-                (list/c symbol? string?))]
-          [data-on-interval
-           (->* [string?]
-                [#:duration (or/c string? number?)
-                 #:duration-leading? boolean?
-                 #:viewtransition? boolean?]
-                (list/c symbol? string?))]
-          [data-on-signal-patch
-           (->* [string?]
-                [#:debounce (or/c string? number?)
-                 #:debounce-leading? boolean?
-                 #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number?)
-                 #:throttle-noleading? boolean?
-                 #:throttle-trailing? boolean?
-                 #:delay (or/c string? number?)]
-                (list/c symbol? string?))]
-          [data-on-signal-patch-filter
-           (->* []
-                [#:include string? #:exclude string?]
-                (list/c symbol? string?))]
-          [data-on-raf
-           (->* [string?]
-                [#:throttle (or/c string? number?)
-                 #:throttle-noleading? boolean?
-                 #:throttle-trailing? boolean?]
-                (list/c symbol? string?))]
-          [data-on-resize
-           (->* [string?]
-                [#:debounce (or/c string? number?)
-                 #:debounce-leading? boolean?
-                 #:debounce-notrailing? boolean?
-                 #:throttle (or/c string? number?)
-                 #:throttle-noleading? boolean?
-                 #:throttle-trailing? boolean?]
-                (list/c symbol? string?))]
-          [data-ignore (->* [] [#:self? boolean?] (list/c symbol? string?))]
-          [data-scroll-into-view
-           (->* []
-                [#:smooth? boolean?
-                 #:instant? boolean?
-                 #:auto? boolean?
-                 #:hstart? boolean?
-                 #:hcenter? boolean?
-                 #:hend? boolean?
-                 #:hnearest? boolean?
-                 #:vstart? boolean?
-                 #:vcenter? boolean?
-                 #:vend? boolean?
-                 #:vnearest? boolean?
-                 #:focus? boolean?]
-                (list/c symbol? string?))]
-          [data-persist
-           (->* []
-                [#:key (or/c symbol? string?)
-                 #:include string?
-                 #:exclude string?
-                 #:session? boolean?]
-                (list/c symbol? string?))]
-          [data-query-string
-           (->* []
-                [#:include string?
-                 #:exclude string?
-                 #:filter? boolean?
-                 #:history? boolean?]
-                (list/c symbol? string?))]
-          [data-json-signals
-           (->* []
-                [#:include string?
-                 #:exclude string?
-                 #:terse? boolean?]
-                (list/c symbol? string?))]
-          [data-preserve-attr (-> (or/c string? (listof string?)) (list/c symbol? string?))]))
+           [data-show (-> string? (list/c symbol? string?))]
+           [data-text (-> string? (list/c symbol? string?))]
+           [data-effect (-> string? (list/c symbol? string?))]
+           [data-animate (-> string? (list/c symbol? string?))]
+           [data-bind
+            (->* [bind-token/c]
+                 [#:case case-style/c #:prop bind-token/c #:event bind-events/c]
+                 (list/c symbol? string?))]
+           [data-ref (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
+           [data-indicator
+            (->* [(or/c symbol? string?)] [#:case case-style/c] (list/c symbol? string?))]
+           [data-ignore-morph (-> (list/c symbol? string?))]
+           [data-view-transition (-> string? (list/c symbol? string?))]
+           [data-custom-validity (-> string? (list/c symbol? string?))]
+           [data-replace-url (-> string? (list/c symbol? string?))]
+           [data-match-media (-> (or/c symbol? string?) string? (list/c symbol? string?))]
+           [data-signals
+            (->* [(or/c symbol? string?) string?]
+                 [#:ifmissing? boolean? #:case case-style/c]
+                 (list/c symbol? string?))]
+           [data-signals/hash
+            (->* [(hash/c (or/c symbol? string?) any/c)]
+                 [#:ifmissing? boolean?]
+                 (list/c symbol? string?))]
+           [data-computed
+            (->* [(or/c symbol? string?) string?]
+                 [#:case case-style/c]
+                 (list/c symbol? string?))]
+           [data-computed/hash (-> (hash/c (or/c symbol? string?) string?) (list/c symbol? string?))]
+           [data-attr (-> (or/c symbol? string?) string? (list/c symbol? string?))]
+           [data-attr/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
+           [data-class
+            (->* [(or/c symbol? string?) string?]
+                 [#:case case-style/c]
+                 (list/c symbol? string?))]
+           [data-class/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
+           [data-style (-> (or/c symbol? string?) string? (list/c symbol? string?))]
+           [data-style/hash (-> (hash/c (or/c symbol? string?) any/c) (list/c symbol? string?))]
+           [data-on
+            (->* [(or/c symbol? string?) string?]
+                 [#:once? boolean?
+                  #:passive? boolean?
+                  #:capture? boolean?
+                  #:case case-style/c
+                  #:window? boolean?
+                  #:document? boolean?
+                  #:outside? boolean?
+                  #:prevent? boolean?
+                  #:stop? boolean?
+                  #:debounce (or/c string? number?)
+                  #:debounce-leading? boolean?
+                  #:debounce-notrailing? boolean?
+                  #:throttle (or/c string? number?)
+                  #:throttle-noleading? boolean?
+                  #:throttle-trailing? boolean?
+                  #:delay (or/c string? number?)
+                  #:viewtransition? boolean?]
+                 (list/c symbol? string?))]
+           [data-init
+            (->* [string?]
+                 [#:delay (or/c string? number?) #:viewtransition? boolean?]
+                 (list/c symbol? string?))]
+           [data-on-intersect
+            (->* [string?]
+                 [#:once? boolean?
+                  #:half? boolean?
+                  #:full? boolean?
+                  #:exit? boolean?
+                  #:threshold (or/c string? number?)
+                  #:debounce (or/c string? number?)
+                  #:debounce-leading? boolean?
+                  #:debounce-notrailing? boolean?
+                  #:throttle (or/c string? number?)
+                  #:throttle-noleading? boolean?
+                  #:throttle-trailing? boolean?
+                  #:delay (or/c string? number?)
+                  #:viewtransition? boolean?]
+                 (list/c symbol? string?))]
+           [data-on-interval
+            (->* [string?]
+                 [#:duration (or/c string? number?)
+                  #:duration-leading? boolean?
+                  #:viewtransition? boolean?]
+                 (list/c symbol? string?))]
+           [data-on-signal-patch
+            (->* [string?]
+                 [#:debounce (or/c string? number?)
+                  #:debounce-leading? boolean?
+                  #:debounce-notrailing? boolean?
+                  #:throttle (or/c string? number?)
+                  #:throttle-noleading? boolean?
+                  #:throttle-trailing? boolean?
+                  #:delay (or/c string? number?)]
+                 (list/c symbol? string?))]
+           [data-on-signal-patch-filter
+            (->* []
+                 [#:include string? #:exclude string?]
+                 (list/c symbol? string?))]
+           [data-on-raf
+            (->* [string?]
+                 [#:throttle (or/c string? number?)
+                  #:throttle-noleading? boolean?
+                  #:throttle-trailing? boolean?]
+                 (list/c symbol? string?))]
+           [data-on-resize
+            (->* [string?]
+                 [#:debounce (or/c string? number?)
+                  #:debounce-leading? boolean?
+                  #:debounce-notrailing? boolean?
+                  #:throttle (or/c string? number?)
+                  #:throttle-noleading? boolean?
+                  #:throttle-trailing? boolean?]
+                 (list/c symbol? string?))]
+           [data-ignore (->* [] [#:self? boolean?] (list/c symbol? string?))]
+           [data-scroll-into-view
+            (->* []
+                 [#:smooth? boolean?
+                  #:instant? boolean?
+                  #:auto? boolean?
+                  #:hstart? boolean?
+                  #:hcenter? boolean?
+                  #:hend? boolean?
+                  #:hnearest? boolean?
+                  #:vstart? boolean?
+                  #:vcenter? boolean?
+                  #:vend? boolean?
+                  #:vnearest? boolean?
+                  #:focus? boolean?]
+                 (list/c symbol? string?))]
+           [data-persist
+            (->* []
+                 [#:key (or/c symbol? string?)
+                  #:include string?
+                  #:exclude string?
+                  #:session? boolean?]
+                 (list/c symbol? string?))]
+           [data-query-string
+            (->* []
+                 [#:include string?
+                  #:exclude string?
+                  #:filter? boolean?
+                  #:history? boolean?]
+                 (list/c symbol? string?))]
+           [data-json-signals
+            (->* []
+                 [#:include string?
+                  #:exclude string?
+                  #:terse? boolean?]
+                 (list/c symbol? string?))]
+           [data-preserve-attr (-> (or/c string? (listof string?)) (list/c symbol? string?))]))
 
 ;; internal helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

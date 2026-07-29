@@ -29,4 +29,4 @@ jobs:
       - name: Run Tests
         run: raco test datastar-test/
       - name: Run SDK Conformance Tests
-        run: raco test sdk-tests/sdk-test-runner.rkt
+        run: raco test sdk-tests/

@@ -6,98 +6,98 @@
          racket/string)
 
 (provide (contract-out
-          [chain (->* [string?] [] #:rest (listof string?) string?)]
-          [chain/and (->* [string?] [] #:rest (listof string?) string?)]
-          [peek (-> string? string?)]
-          [set-all (->* [string?] [#:include string? #:exclude string?] string?)]
-          [toggle-all (->* [] [#:include string? #:exclude string?] string?)]
-          [get
-           (->* [string?]
-                [#:content-type (or/c 'json 'form)
-                 #:filter-signals-include string?
-                 #:filter-signals-exclude string?
-                 #:selector string?
-                 #:headers hash?
-                 #:open-when-hidden? boolean?
-                 #:payload string?
-                 #:retry (or/c 'auto 'error 'always 'never)
-                 #:retry-interval exact-nonnegative-integer?
-                 #:retry-scaler number?
-                 #:retry-max-wait exact-nonnegative-integer?
-                 #:retry-max-count exact-nonnegative-integer?
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
-                string?)]
-          [post
-           (->* [string?]
-                [#:content-type (or/c 'json 'form)
-                 #:filter-signals-include string?
-                 #:filter-signals-exclude string?
-                 #:selector string?
-                 #:headers hash?
-                 #:open-when-hidden? boolean?
-                 #:payload string?
-                 #:retry (or/c 'auto 'error 'always 'never)
-                 #:retry-interval exact-nonnegative-integer?
-                 #:retry-scaler number?
-                 #:retry-max-wait exact-nonnegative-integer?
-                 #:retry-max-count exact-nonnegative-integer?
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
-                string?)]
-          [put
-           (->* [string?]
-                [#:content-type (or/c 'json 'form)
-                 #:filter-signals-include string?
-                 #:filter-signals-exclude string?
-                 #:selector string?
-                 #:headers hash?
-                 #:open-when-hidden? boolean?
-                 #:payload string?
-                 #:retry (or/c 'auto 'error 'always 'never)
-                 #:retry-interval exact-nonnegative-integer?
-                 #:retry-scaler number?
-                 #:retry-max-wait exact-nonnegative-integer?
-                 #:retry-max-count exact-nonnegative-integer?
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
-                string?)]
-          [patch
-           (->* [string?]
-                [#:content-type (or/c 'json 'form)
-                 #:filter-signals-include string?
-                 #:filter-signals-exclude string?
-                 #:selector string?
-                 #:headers hash?
-                 #:open-when-hidden? boolean?
-                 #:payload string?
-                 #:retry (or/c 'auto 'error 'always 'never)
-                 #:retry-interval exact-nonnegative-integer?
-                 #:retry-scaler number?
-                 #:retry-max-wait exact-nonnegative-integer?
-                 #:retry-max-count exact-nonnegative-integer?
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
-                string?)]
-          [delete
-           (->* [string?]
-                [#:content-type (or/c 'json 'form)
-                 #:filter-signals-include string?
-                 #:filter-signals-exclude string?
-                 #:selector string?
-                 #:headers hash?
-                 #:open-when-hidden? boolean?
-                 #:payload string?
-                 #:retry (or/c 'auto 'error 'always 'never)
-                 #:retry-interval exact-nonnegative-integer?
-                 #:retry-scaler number?
-                 #:retry-max-wait exact-nonnegative-integer?
-                 #:retry-max-count exact-nonnegative-integer?
-                 #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
-                string?)]
-          [clipboard (->* [string?] [#:base64? boolean?] string?)]
-          [fit
-           (->* [string? number? number? number? number?]
-                [#:clamp? boolean? #:round? boolean?]
-                string?)]
-          [intl
-           (->* [string? string?] [#:options hash? #:locale string?] string?)]))
+           [chain (->* [string?] [] #:rest (listof string?) string?)]
+           [chain/and (->* [string?] [] #:rest (listof string?) string?)]
+           [peek (-> string? string?)]
+           [set-all (->* [string?] [#:include string? #:exclude string?] string?)]
+           [toggle-all (->* [] [#:include string? #:exclude string?] string?)]
+           [get
+            (->* [string?]
+                 [#:content-type (or/c 'json 'form)
+                  #:filter-signals-include string?
+                  #:filter-signals-exclude string?
+                  #:selector string?
+                  #:headers hash?
+                  #:open-when-hidden? boolean?
+                  #:payload string?
+                  #:retry (or/c 'auto 'error 'always 'never)
+                  #:retry-interval exact-nonnegative-integer?
+                  #:retry-scaler number?
+                  #:retry-max-wait exact-nonnegative-integer?
+                  #:retry-max-count exact-nonnegative-integer?
+                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
+                 string?)]
+           [post
+            (->* [string?]
+                 [#:content-type (or/c 'json 'form)
+                  #:filter-signals-include string?
+                  #:filter-signals-exclude string?
+                  #:selector string?
+                  #:headers hash?
+                  #:open-when-hidden? boolean?
+                  #:payload string?
+                  #:retry (or/c 'auto 'error 'always 'never)
+                  #:retry-interval exact-nonnegative-integer?
+                  #:retry-scaler number?
+                  #:retry-max-wait exact-nonnegative-integer?
+                  #:retry-max-count exact-nonnegative-integer?
+                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
+                 string?)]
+           [put
+            (->* [string?]
+                 [#:content-type (or/c 'json 'form)
+                  #:filter-signals-include string?
+                  #:filter-signals-exclude string?
+                  #:selector string?
+                  #:headers hash?
+                  #:open-when-hidden? boolean?
+                  #:payload string?
+                  #:retry (or/c 'auto 'error 'always 'never)
+                  #:retry-interval exact-nonnegative-integer?
+                  #:retry-scaler number?
+                  #:retry-max-wait exact-nonnegative-integer?
+                  #:retry-max-count exact-nonnegative-integer?
+                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
+                 string?)]
+           [patch
+            (->* [string?]
+                 [#:content-type (or/c 'json 'form)
+                  #:filter-signals-include string?
+                  #:filter-signals-exclude string?
+                  #:selector string?
+                  #:headers hash?
+                  #:open-when-hidden? boolean?
+                  #:payload string?
+                  #:retry (or/c 'auto 'error 'always 'never)
+                  #:retry-interval exact-nonnegative-integer?
+                  #:retry-scaler number?
+                  #:retry-max-wait exact-nonnegative-integer?
+                  #:retry-max-count exact-nonnegative-integer?
+                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
+                 string?)]
+           [delete
+            (->* [string?]
+                 [#:content-type (or/c 'json 'form)
+                  #:filter-signals-include string?
+                  #:filter-signals-exclude string?
+                  #:selector string?
+                  #:headers hash?
+                  #:open-when-hidden? boolean?
+                  #:payload string?
+                  #:retry (or/c 'auto 'error 'always 'never)
+                  #:retry-interval exact-nonnegative-integer?
+                  #:retry-scaler number?
+                  #:retry-max-wait exact-nonnegative-integer?
+                  #:retry-max-count exact-nonnegative-integer?
+                  #:request-cancellation (or/c 'auto 'cleanup 'disabled string?)]
+                 string?)]
+           [clipboard (->* [string?] [#:base64? boolean?] string?)]
+           [fit
+            (->* [string? number? number? number? number?]
+                 [#:clamp? boolean? #:round? boolean?]
+                 string?)]
+           [intl
+            (->* [string? string?] [#:options hash? #:locale string?] string?)]))
 
 ;; internal helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; These produce JS expression syntax (unquoted keys, regex literals)
